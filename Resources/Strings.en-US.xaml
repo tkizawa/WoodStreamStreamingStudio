@@ -1,0 +1,52 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=mscorlib">
+    <!-- Application Basic Info -->
+    <sys:String x:Key="AppTitle">WoodStream Streaming Studio - Rehearsal Mode</sys:String>
+    <sys:String x:Key="HeaderRehearsalMode">Rehearsal Mode</sys:String>
+    <sys:String x:Key="HeaderRehearsalBadge">TESTING</sys:String>
+    <sys:String x:Key="HeaderSubtitle">Verify camera, screen and microphone inputs before going live</sys:String>
+
+    <!-- Camera Section -->
+    <sys:String x:Key="CameraSectionTitle">Webcam Preview</sys:String>
+    <sys:String x:Key="CameraDeviceLabel">Select Camera:</sys:String>
+    <sys:String x:Key="CameraNoDevice">No camera found</sys:String>
+    <sys:String x:Key="CameraSelectPlaceholder">Select a webcam...</sys:String>
+    <sys:String x:Key="CameraStart">Start Preview</sys:String>
+    <sys:String x:Key="CameraStop">Stop Preview</sys:String>
+    <sys:String x:Key="CameraFlip">Horizontal Flip (Mirror)</sys:String>
+    <sys:String x:Key="CameraStatusRunning">Receiving camera feed</sys:String>
+    <sys:String x:Key="CameraStatusStopped">Camera stopped</sys:String>
+    <sys:String x:Key="CameraResolutionLabel">Resolution:</sys:String>
+    <sys:String x:Key="CameraFpsLabel">FPS:</sys:String>
+
+    <!-- Screen Capture Section -->
+    <sys:String x:Key="ScreenSectionTitle">Screen / Window Capture</sys:String>
+    <sys:String x:Key="ScreenSourceLabel">Capture Source:</sys:String>
+    <sys:String x:Key="ScreenNoSource">No source found</sys:String>
+    <sys:String x:Key="ScreenSelectPlaceholder">Select display or window...</sys:String>
+    <sys:String x:Key="ScreenRefresh">Refresh List</sys:String>
+    <sys:String x:Key="ScreenStart">Start Capture</sys:String>
+    <sys:String x:Key="ScreenStop">Stop Capture</sys:String>
+    <sys:String x:Key="ScreenStatusRunning">Capturing screen</sys:String>
+    <sys:String x:Key="ScreenStatusStopped">Capture stopped</sys:String>
+    <sys:String x:Key="ScreenDisplayPrefix">Display:</sys:String>
+    <sys:String x:Key="ScreenWindowPrefix">Window:</sys:String>
+
+    <!-- Microphone & Audio Section -->
+    <sys:String x:Key="AudioSectionTitle">Microphone Level Meter</sys:String>
+    <sys:String x:Key="AudioDeviceLabel">Select Mic:</sys:String>
+    <sys:String x:Key="AudioNoDevice">No microphone found</sys:String>
+    <sys:String x:Key="AudioSelectPlaceholder">Select a microphone...</sys:String>
+    <sys:String x:Key="AudioStart">Test Mic</sys:String>
+    <sys:String x:Key="AudioStop">Stop Mic</sys:String>
+    <sys:String x:Key="AudioLevelLabel">Input Volume Level:</sys:String>
+    <sys:String x:Key="AudioStatusRunning">Receiving audio stream</sys:String>
+    <sys:String x:Key="AudioStatusStopped">Microphone stopped</sys:String>
+    <sys:String x:Key="AudioMuteLabel">Mute</sys:String>
+
+    <!-- Settings & Language -->
+    <sys:String x:Key="LanguageLabel">Language:</sys:String>
+    <sys:String x:Key="SaveSettingsNotice">Settings are saved automatically</sys:String>
+    <sys:String x:Key="ReadyStatus">Ready</sys:String>
+</ResourceDictionary>

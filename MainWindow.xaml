@@ -1,0 +1,408 @@
+<Window x:Class="WoodStreamStreamingStudio.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="clr-namespace:WoodStreamStreamingStudio.ViewModels"
+        mc:Ignorable="d"
+        Title="{DynamicResource AppTitle}"
+        Height="850" Width="1300"
+        MinHeight="650" MinWidth="950"
+        Background="{StaticResource BgDarkBrush}"
+        Icon="Assets/app.ico">
+
+    <Window.DataContext>
+        <vm:MainViewModel />
+    </Window.DataContext>
+
+    <Window.Resources>
+        <!-- 音量レベルメーター用プログレスバースタイル（グリーンからイエロー、レッド） -->
+        <LinearGradientBrush x:Key="AudioMeterGradientBrush" StartPoint="0,0" EndPoint="1,0">
+            <GradientStop Color="#00E676" Offset="0.0" />
+            <GradientStop Color="#00E676" Offset="0.65" />
+            <GradientStop Color="#FFD600" Offset="0.85" />
+            <GradientStop Color="#FF1744" Offset="1.0" />
+        </LinearGradientBrush>
+
+        <Style x:Key="StudioLevelMeterStyle" TargetType="ProgressBar">
+            <Setter Property="Background" Value="#12131A" />
+            <Setter Property="BorderBrush" Value="#2E3040" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Height" Value="18" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ProgressBar">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="4"
+                                ClipToBounds="True">
+                            <Grid>
+                                <!-- 背景の目盛りライン -->
+                                <UniformGrid Columns="10" Opacity="0.15">
+                                    <Border BorderBrush="#FFF" BorderThickness="0,0,1,0"/>
+                                    <Border BorderBrush="#FFF" BorderThickness="0,0,1,0"/>
+                                    <Border BorderBrush="#FFF" BorderThickness="0,0,1,0"/>
+                                    <Border BorderBrush="#FFF" BorderThickness="0,0,1,0"/>
+                                    <Border BorderBrush="#FFF" BorderThickness="0,0,1,0"/>
+                                    <Border BorderBrush="#FFF" BorderThickness="0,0,1,0"/>
+                                    <Border BorderBrush="#FFF" BorderThickness="0,0,1,0"/>
+                                    <Border BorderBrush="#FFF" BorderThickness="0,0,1,0"/>
+                                    <Border BorderBrush="#FFF" BorderThickness="0,0,1,0"/>
+                                    <Border BorderBrush="#FFF" BorderThickness="0,0,1,0"/>
+                                </UniformGrid>
+                                <!-- インジケーターバー -->
+                                <Border x:Name="PART_Track" />
+                                <Border x:Name="PART_Indicator"
+                                        HorizontalAlignment="Left"
+                                        Background="{StaticResource AudioMeterGradientBrush}"
+                                        CornerRadius="2" />
+                            </Grid>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <!-- 1. ヘッダー -->
+            <RowDefinition Height="Auto" />
+            <!-- 2. メインプレビュー領域 -->
+            <RowDefinition Height="*" />
+            <!-- 3. オーディオ設定領域 -->
+            <RowDefinition Height="Auto" />
+            <!-- 4. ステータスバー -->
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- 1. ヘッダーバー -->
+        <Border Grid.Row="0" Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1" Padding="18,12">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <!-- アプリロゴ・タイトル・バッジ -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Image Source="Assets/app.png" Width="32" Height="32" Margin="0,0,12,0" />
+                    <StackPanel VerticalAlignment="Center">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="WoodStream Streaming Studio" FontSize="18" FontWeight="Bold" Foreground="{StaticResource AccentBrush}" />
+                            <Border Background="#2B1638" BorderBrush="{StaticResource AccentPurpleBrush}" BorderThickness="1" CornerRadius="4" Margin="10,0,0,0" Padding="8,2" VerticalAlignment="Center">
+                                <TextBlock Text="{DynamicResource HeaderRehearsalBadge}" FontSize="10" FontWeight="Bold" Foreground="#D59BFF" />
+                            </Border>
+                        </StackPanel>
+                        <TextBlock Text="{DynamicResource HeaderSubtitle}" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,2,0,0" />
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- 言語切替セレクター -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="{DynamicResource LanguageLabel}" VerticalAlignment="Center" Margin="0,0,8,0" Foreground="{StaticResource TextSecondaryBrush}" FontSize="12" />
+                    <ComboBox Width="110" SelectedValuePath="Tag" SelectedValue="{Binding CurrentLanguage, Mode=TwoWay}" SelectionChanged="OnLanguageSelectionChanged">
+                        <ComboBoxItem Content="日本語" Tag="ja" />
+                        <ComboBoxItem Content="English" Tag="en" />
+                    </ComboBox>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- 2. メインプレビュー領域 -->
+        <Grid Grid.Row="1" Margin="16,14,16,10">
+            <Grid.ColumnDefinitions>
+                <!-- 左: Webカメラプレビュー -->
+                <ColumnDefinition Width="*" />
+                <!-- スプリッター -->
+                <ColumnDefinition Width="14" />
+                <!-- 右: 画面キャプチャプレビュー -->
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <!-- 左パネル: Webカメラ プレビュー -->
+            <Border Grid.Column="0" Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="14">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <!-- セクションタイトル -->
+                    <DockPanel Grid.Row="0" Margin="0,0,0,10">
+                        <Ellipse Width="10" Height="10" Fill="{StaticResource AccentBrush}" Margin="0,0,8,0" VerticalAlignment="Center" />
+                        <TextBlock Text="{DynamicResource CameraSectionTitle}" FontSize="15" FontWeight="Bold" VerticalAlignment="Center" />
+                        <!-- 右寄せステータス -->
+                        <Border Background="#12131A" CornerRadius="4" Padding="8,2" HorizontalAlignment="Right">
+                            <TextBlock Text="{Binding CameraStatusText}" FontSize="11" Foreground="{StaticResource AccentBrush}" FontFamily="Consolas, Segoe UI" />
+                        </Border>
+                    </DockPanel>
+
+                    <!-- コントロールバー（カメラ選択、開始停止、ミラー） -->
+                    <Grid Grid.Row="1" Margin="0,0,0,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <!-- カメラ ComboBox -->
+                        <ComboBox Grid.Column="0"
+                                  ItemsSource="{Binding CameraDevices}"
+                                  SelectedItem="{Binding SelectedCameraDevice, Mode=TwoWay}"
+                                  DisplayMemberPath="Name"
+                                  Margin="0,0,8,0" />
+
+                        <!-- ミラートグル -->
+                        <CheckBox Grid.Column="1"
+                                  Content="{DynamicResource CameraFlip}"
+                                  IsChecked="{Binding IsCameraMirror, Mode=TwoWay}"
+                                  VerticalAlignment="Center"
+                                  Foreground="{StaticResource TextSecondaryBrush}"
+                                  Margin="0,0,10,0" />
+
+                        <!-- 開始停止ボタン -->
+                        <Button Grid.Column="2"
+                                Command="{Binding ToggleCameraCommand}"
+                                MinWidth="95">
+                            <Button.Style>
+                                <Style TargetType="Button" BasedOn="{StaticResource StudioButtonStyle}">
+                                    <Setter Property="Content" Value="{DynamicResource CameraStart}" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsCameraRunning}" Value="True">
+                                            <Setter Property="Content" Value="{DynamicResource CameraStop}" />
+                                            <Setter Property="Background" Value="#381D26" />
+                                            <Setter Property="Foreground" Value="{StaticResource LiveRedBrush}" />
+                                            <Setter Property="BorderBrush" Value="{StaticResource LiveRedBrush}" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                        </Button>
+                    </Grid>
+
+                    <!-- 映像プレビューモニター -->
+                    <Border Grid.Row="2" Background="#0A0B0E" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="6" ClipToBounds="True">
+                        <Grid>
+                            <!-- プレースホルダー（カメラ停止時） -->
+                            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <StackPanel.Style>
+                                    <Style TargetType="StackPanel">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsCameraRunning}" Value="False">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </StackPanel.Style>
+                                <TextBlock Text="📷" FontSize="40" HorizontalAlignment="Center" Opacity="0.4" Margin="0,0,0,8" />
+                                <TextBlock Text="{DynamicResource CameraStatusStopped}" FontSize="13" Foreground="{StaticResource TextSecondaryBrush}" HorizontalAlignment="Center" />
+                            </StackPanel>
+
+                            <!-- カメラ映像 Image コントロール -->
+                            <Image Source="{Binding CameraPreviewImage}"
+                                   Stretch="Uniform"
+                                   RenderOptions.BitmapScalingMode="HighQuality" />
+                        </Grid>
+                    </Border>
+                </Grid>
+            </Border>
+
+            <!-- グリッドスプリッター -->
+            <GridSplitter Grid.Column="1" HorizontalAlignment="Stretch" Background="Transparent" />
+
+            <!-- 右パネル: 画面 / ウィンドウ キャプチャ -->
+            <Border Grid.Column="2" Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="14">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <!-- セクションタイトル -->
+                    <DockPanel Grid.Row="0" Margin="0,0,0,10">
+                        <Ellipse Width="10" Height="10" Fill="{StaticResource AccentPurpleBrush}" Margin="0,0,8,0" VerticalAlignment="Center" />
+                        <TextBlock Text="{DynamicResource ScreenSectionTitle}" FontSize="15" FontWeight="Bold" VerticalAlignment="Center" />
+                        <!-- 右寄せステータス -->
+                        <Border Background="#12131A" CornerRadius="4" Padding="8,2" HorizontalAlignment="Right">
+                            <TextBlock Text="{Binding ScreenStatusText}" FontSize="11" Foreground="{StaticResource AccentPurpleBrush}" FontFamily="Consolas, Segoe UI" />
+                        </Border>
+                    </DockPanel>
+
+                    <!-- コントロールバー（ソース選択、更新、開始停止） -->
+                    <Grid Grid.Row="1" Margin="0,0,0,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <!-- ソース ComboBox -->
+                        <ComboBox Grid.Column="0"
+                                  ItemsSource="{Binding CaptureSources}"
+                                  SelectedItem="{Binding SelectedCaptureSource, Mode=TwoWay}"
+                                  DisplayMemberPath="Title"
+                                  Margin="0,0,8,0" />
+
+                        <!-- 一覧更新ボタン -->
+                        <Button Grid.Column="1"
+                                Command="{Binding RefreshScreenSourcesCommand}"
+                                Content="{DynamicResource ScreenRefresh}"
+                                Style="{StaticResource StudioButtonStyle}"
+                                Margin="0,0,8,0" />
+
+                        <!-- 開始停止ボタン -->
+                        <Button Grid.Column="2"
+                                Command="{Binding ToggleScreenCommand}"
+                                MinWidth="95">
+                            <Button.Style>
+                                <Style TargetType="Button" BasedOn="{StaticResource StudioButtonStyle}">
+                                    <Setter Property="Content" Value="{DynamicResource ScreenStart}" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsScreenRunning}" Value="True">
+                                            <Setter Property="Content" Value="{DynamicResource ScreenStop}" />
+                                            <Setter Property="Background" Value="#381D26" />
+                                            <Setter Property="Foreground" Value="{StaticResource LiveRedBrush}" />
+                                            <Setter Property="BorderBrush" Value="{StaticResource LiveRedBrush}" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                        </Button>
+                    </Grid>
+
+                    <!-- 画面プレビューモニター -->
+                    <Border Grid.Row="2" Background="#0A0B0E" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="6" ClipToBounds="True">
+                        <Grid>
+                            <!-- プレースホルダー（画面キャプチャ停止時） -->
+                            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <StackPanel.Style>
+                                    <Style TargetType="StackPanel">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsScreenRunning}" Value="False">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </StackPanel.Style>
+                                <TextBlock Text="🖥️" FontSize="40" HorizontalAlignment="Center" Opacity="0.4" Margin="0,0,0,8" />
+                                <TextBlock Text="{DynamicResource ScreenStatusStopped}" FontSize="13" Foreground="{StaticResource TextSecondaryBrush}" HorizontalAlignment="Center" />
+                            </StackPanel>
+
+                            <!-- 画面キャプチャ Image コントロール -->
+                            <Image Source="{Binding ScreenPreviewImage}"
+                                   Stretch="Uniform"
+                                   RenderOptions.BitmapScalingMode="HighQuality" />
+                        </Grid>
+                    </Border>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <!-- 3. マイク・オーディオ設定パネル (下部) -->
+        <Border Grid.Row="2" Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,1,0,0" Padding="18,14">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <!-- マイクタイトルおよびコントロールバー -->
+                <Grid Grid.Row="0" Margin="0,0,0,10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,16,0">
+                        <Ellipse Width="10" Height="10" Fill="#00E676" Margin="0,0,8,0" VerticalAlignment="Center" />
+                        <TextBlock Text="{DynamicResource AudioSectionTitle}" FontSize="14" FontWeight="Bold" VerticalAlignment="Center" />
+                    </StackPanel>
+
+                    <!-- マイク選択 ComboBox -->
+                    <ComboBox Grid.Column="1"
+                              ItemsSource="{Binding AudioDevices}"
+                              SelectedItem="{Binding SelectedAudioDevice, Mode=TwoWay}"
+                              DisplayMemberPath="Name"
+                              Margin="0,0,12,0" />
+
+                    <!-- ミュートトグル -->
+                    <CheckBox Grid.Column="2"
+                              Content="{DynamicResource AudioMuteLabel}"
+                              IsChecked="{Binding IsAudioMuted, Mode=TwoWay}"
+                              VerticalAlignment="Center"
+                              Foreground="{StaticResource TextSecondaryBrush}"
+                              Margin="0,0,12,0" />
+
+                    <!-- マイクテスト 開始停止ボタン -->
+                    <Button Grid.Column="3"
+                            Command="{Binding ToggleAudioCommand}"
+                            MinWidth="105">
+                        <Button.Style>
+                            <Style TargetType="Button" BasedOn="{StaticResource StudioButtonStyle}">
+                                <Setter Property="Content" Value="{DynamicResource AudioStart}" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsAudioRunning}" Value="True">
+                                        <Setter Property="Content" Value="{DynamicResource AudioStop}" />
+                                        <Setter Property="Background" Value="#381D26" />
+                                        <Setter Property="Foreground" Value="{StaticResource LiveRedBrush}" />
+                                        <Setter Property="BorderBrush" Value="{StaticResource LiveRedBrush}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                    </Button>
+                </Grid>
+
+                <!-- リアルタイム音量ProgressBarおよびdBメーター -->
+                <Grid Grid.Row="1">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="80" />
+                    </Grid.ColumnDefinitions>
+
+                    <TextBlock Grid.Column="0"
+                               Text="{DynamicResource AudioLevelLabel}"
+                               FontSize="12"
+                               Foreground="{StaticResource TextSecondaryBrush}"
+                               VerticalAlignment="Center"
+                               Margin="0,0,12,0" />
+
+                    <!-- プログレスバー (VUメーター) -->
+                    <ProgressBar Grid.Column="1"
+                                 Style="{StaticResource StudioLevelMeterStyle}"
+                                 Value="{Binding AudioLevel}"
+                                 Maximum="100"
+                                 VerticalAlignment="Center"
+                                 Margin="0,0,12,0" />
+
+                    <!-- dB 表示テキスト -->
+                    <Border Grid.Column="2" Background="#12131A" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="4" Padding="6,2">
+                        <TextBlock Text="{Binding AudioPeakDb}"
+                                   FontFamily="Consolas, Segoe UI"
+                                   FontSize="12"
+                                   FontWeight="SemiBold"
+                                   Foreground="{StaticResource AccentBrush}"
+                                   HorizontalAlignment="Center" />
+                    </Border>
+                </Grid>
+            </Grid>
+        </Border>
+
+        <!-- 4. ステータスバー -->
+        <Border Grid.Row="3" Background="#0C0D12" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,1,0,0" Padding="16,6">
+            <DockPanel>
+                <TextBlock Text="{Binding StatusMessage}" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" />
+                <TextBlock Text="{DynamicResource SaveSettingsNotice}" FontSize="11" Foreground="#555869" HorizontalAlignment="Right" VerticalAlignment="Center" />
+            </DockPanel>
+        </Border>
+    </Grid>
+</Window>

@@ -1,0 +1,52 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=mscorlib">
+    <!-- アプリ基本情報 -->
+    <sys:String x:Key="AppTitle">WoodStream Streaming Studio - リハーサルモード</sys:String>
+    <sys:String x:Key="HeaderRehearsalMode">リハーサルモード</sys:String>
+    <sys:String x:Key="HeaderRehearsalBadge">TESTING</sys:String>
+    <sys:String x:Key="HeaderSubtitle">ライブ配信前のデバイス入力確認・スタジオ準備</sys:String>
+
+    <!-- カメラセクション -->
+    <sys:String x:Key="CameraSectionTitle">Webカメラ プレビュー</sys:String>
+    <sys:String x:Key="CameraDeviceLabel">カメラ選択:</sys:String>
+    <sys:String x:Key="CameraNoDevice">カメラが見つかりません</sys:String>
+    <sys:String x:Key="CameraSelectPlaceholder">カメラを選択してください</sys:String>
+    <sys:String x:Key="CameraStart">プレビュー開始</sys:String>
+    <sys:String x:Key="CameraStop">プレビュー停止</sys:String>
+    <sys:String x:Key="CameraFlip">左右反転 (ミラー)</sys:String>
+    <sys:String x:Key="CameraStatusRunning">カメラ映像を受信中</sys:String>
+    <sys:String x:Key="CameraStatusStopped">カメラ停止中</sys:String>
+    <sys:String x:Key="CameraResolutionLabel">解像度:</sys:String>
+    <sys:String x:Key="CameraFpsLabel">FPS:</sys:String>
+
+    <!-- 画面キャプチャセクション -->
+    <sys:String x:Key="ScreenSectionTitle">画面 / ウィンドウ キャプチャ</sys:String>
+    <sys:String x:Key="ScreenSourceLabel">キャプチャ対象:</sys:String>
+    <sys:String x:Key="ScreenNoSource">対象が見つかりません</sys:String>
+    <sys:String x:Key="ScreenSelectPlaceholder">画面またはウィンドウを選択</sys:String>
+    <sys:String x:Key="ScreenRefresh">一覧を更新</sys:String>
+    <sys:String x:Key="ScreenStart">キャプチャ開始</sys:String>
+    <sys:String x:Key="ScreenStop">キャプチャ停止</sys:String>
+    <sys:String x:Key="ScreenStatusRunning">画面をキャプチャ中</sys:String>
+    <sys:String x:Key="ScreenStatusStopped">キャプチャ停止中</sys:String>
+    <sys:String x:Key="ScreenDisplayPrefix">ディスプレイ:</sys:String>
+    <sys:String x:Key="ScreenWindowPrefix">ウィンドウ:</sys:String>
+
+    <!-- マイク・オーディオセクション -->
+    <sys:String x:Key="AudioSectionTitle">マイク音声レベルメーター</sys:String>
+    <sys:String x:Key="AudioDeviceLabel">マイク選択:</sys:String>
+    <sys:String x:Key="AudioNoDevice">マイクが見つかりません</sys:String>
+    <sys:String x:Key="AudioSelectPlaceholder">マイクを選択してください</sys:String>
+    <sys:String x:Key="AudioStart">マイクテスト開始</sys:String>
+    <sys:String x:Key="AudioStop">マイクテスト停止</sys:String>
+    <sys:String x:Key="AudioLevelLabel">入力音量レベル:</sys:String>
+    <sys:String x:Key="AudioStatusRunning">マイク音声を受信中</sys:String>
+    <sys:String x:Key="AudioStatusStopped">マイク停止中</sys:String>
+    <sys:String x:Key="AudioMuteLabel">ミュート</sys:String>
+
+    <!-- 設定・言語 -->
+    <sys:String x:Key="LanguageLabel">言語 (Language):</sys:String>
+    <sys:String x:Key="SaveSettingsNotice">設定は自動保存されます</sys:String>
+    <sys:String x:Key="ReadyStatus">準備完了</sys:String>
+</ResourceDictionary>
