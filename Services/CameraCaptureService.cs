@@ -27,6 +27,9 @@ public class CameraCaptureService : IDisposable
     public int FrameWidth { get; private set; }
     public int FrameHeight { get; private set; }
 
+    private readonly Mat _latestFrame = new();
+    private readonly object _frameLock = new();
+
     /// <summary>新しいカメラフレームが到着したときに発生するイベント</summary>
     public event Action<BitmapSource>? FrameArrived;
 
@@ -35,6 +38,20 @@ public class CameraCaptureService : IDisposable
 
     /// <summary>エラー発生時のイベント</summary>
     public event Action<string>? ErrorOccurred;
+
+    /// <summary>
+    /// 最新のカメラフレーム（左右反転反映済み）をターゲットMatにコピーします。
+    /// </summary>
+    /// <returns>フレームが存在しコピー成功した場合はtrue</returns>
+    public bool CopyLatestFrame(Mat targetMat)
+    {
+        lock (_frameLock)
+        {
+            if (_latestFrame.Empty()) return false;
+            _latestFrame.CopyTo(targetMat);
+            return true;
+        }
+    }
 
     /// <summary>
     /// システムに接続されている利用可能なWebカメラを列挙します
@@ -164,6 +181,12 @@ public class CameraCaptureService : IDisposable
                 FrameWidth = frame.Width;
                 FrameHeight = frame.Height;
 
+                // 合成サービス用に最新フレームを保管
+                lock (_frameLock)
+                {
+                    frame.CopyTo(_latestFrame);
+                }
+
                 // OpenCvSharp の WriteableBitmapConverter を使用して WPF 用 BitmapSource に変換
                 var bitmap = frame.ToWriteableBitmap();
                 bitmap.Freeze(); // UIスレッドへ渡すためにFreeze
@@ -234,5 +257,9 @@ public class CameraCaptureService : IDisposable
     public void Dispose()
     {
         Stop();
+        lock (_frameLock)
+        {
+            _latestFrame.Dispose();
+        }
     }
 }

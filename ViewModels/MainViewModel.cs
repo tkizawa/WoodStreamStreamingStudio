@@ -18,11 +18,35 @@ public class MainViewModel : ViewModelBase, IDisposable
     private readonly CameraCaptureService _cameraService;
     private readonly ScreenCaptureService _screenService;
     private readonly AudioCaptureService _audioService;
+    private readonly StreamCompositorService _compositorService;
     private readonly SettingsService _settingsService;
     private readonly LocalizationService _locService;
 
     private AppSettings _appSettings;
     private nint _windowHandle = nint.Zero;
+
+    #region 配信用プレビュー（合成） プロパティ
+    private BitmapSource? _streamPreviewImage;
+    public BitmapSource? StreamPreviewImage
+    {
+        get => _streamPreviewImage;
+        set => SetProperty(ref _streamPreviewImage, value);
+    }
+
+    private bool _isStreamRunning = true;
+    public bool IsStreamRunning
+    {
+        get => _isStreamRunning;
+        set => SetProperty(ref _isStreamRunning, value);
+    }
+
+    private string _streamStatusText = "-- x -- @ 0 FPS";
+    public string StreamStatusText
+    {
+        get => _streamStatusText;
+        set => SetProperty(ref _streamStatusText, value);
+    }
+    #endregion
 
     #region カメラ プロパティ
     private ObservableCollection<CameraDeviceInfo> _cameraDevices = new();
@@ -222,6 +246,7 @@ public class MainViewModel : ViewModelBase, IDisposable
         _cameraService = new CameraCaptureService();
         _screenService = new ScreenCaptureService();
         _audioService = new AudioCaptureService();
+        _compositorService = new StreamCompositorService(_cameraService, _screenService);
 
         _appSettings = _settingsService.Load();
         CurrentLanguage = _appSettings.Language;
@@ -238,6 +263,9 @@ public class MainViewModel : ViewModelBase, IDisposable
         _screenService.FrameArrived += OnScreenFrameArrived;
         _screenService.StatusChanged += OnScreenStatusChanged;
         _screenService.ErrorOccurred += OnServiceError;
+
+        _compositorService.CompositeFrameArrived += OnCompositeFrameArrived;
+        _compositorService.StatusChanged += OnCompositeStatusChanged;
 
         _audioService.AudioLevelChanged += OnAudioLevelChanged;
         _audioService.ErrorOccurred += OnServiceError;
@@ -310,6 +338,9 @@ public class MainViewModel : ViewModelBase, IDisposable
             // 自動的にマイク監視開始
             StartAudioCapture();
         }
+
+        // 4. リアルタイム映像合成（配信用プレビュー）開始
+        _compositorService.Start();
 
         StatusMessage = _locService.GetString("ReadyStatus");
     }
@@ -496,8 +527,25 @@ public class MainViewModel : ViewModelBase, IDisposable
 
     public AppSettings GetCurrentSettings() => _appSettings;
 
+    private void OnCompositeFrameArrived(BitmapSource bitmap)
+    {
+        Application.Current.Dispatcher.InvokeAsync(() =>
+        {
+            StreamPreviewImage = bitmap;
+        }, System.Windows.Threading.DispatcherPriority.Render);
+    }
+
+    private void OnCompositeStatusChanged(int fps, int width, int height)
+    {
+        Application.Current.Dispatcher.InvokeAsync(() =>
+        {
+            StreamStatusText = $"{width}x{height} @ {fps} FPS";
+        });
+    }
+
     public void Dispose()
     {
+        _compositorService.Dispose();
         _cameraService.Dispose();
         _screenService.Dispose();
         _audioService.Dispose();

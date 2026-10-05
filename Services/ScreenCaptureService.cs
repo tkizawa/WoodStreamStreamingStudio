@@ -2,11 +2,14 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Interop;
 using System.Windows.Media.Imaging;
+using OpenCvSharp;
+using OpenCvSharp.WpfExtensions;
 using WoodStreamStreamingStudio.Models;
 
 namespace WoodStreamStreamingStudio.Services;
@@ -25,6 +28,9 @@ public class ScreenCaptureService : IDisposable
     public int CaptureWidth { get; private set; }
     public int CaptureHeight { get; private set; }
 
+    private readonly Mat _latestFrame = new();
+    private readonly object _frameLock = new();
+
     /// <summary>画面フレームが生成されたときに発生するイベント</summary>
     public event Action<BitmapSource>? FrameArrived;
 
@@ -33,6 +39,20 @@ public class ScreenCaptureService : IDisposable
 
     /// <summary>エラー発生時のイベント</summary>
     public event Action<string>? ErrorOccurred;
+
+    /// <summary>
+    /// 最新の画面フレーム（Mat）をターゲットMatにコピーします。
+    /// </summary>
+    /// <returns>フレームが存在しコピー成功した場合はtrue</returns>
+    public bool CopyLatestFrame(Mat targetMat)
+    {
+        lock (_frameLock)
+        {
+            if (_latestFrame.Empty()) return false;
+            _latestFrame.CopyTo(targetMat);
+            return true;
+        }
+    }
 
     /// <summary>
     /// キャプチャ可能なソース（ディスプレイおよびアクティブウィンドウ）を取得します
@@ -132,30 +152,37 @@ public class ScreenCaptureService : IDisposable
                     hSrcDC, srcX, srcY,
                     NativeMethods.SRCCOPY | NativeMethods.CAPTUREBLT);
 
-                // BitmapSource に変換
-                BitmapSource? bmpSource = null;
-                try
+                // DIBits 経由で OpenCvSharp の Mat (CV_8UC4) を直接生成
+                var bmi = new NativeMethods.BITMAPINFOHEADER
                 {
-                    bmpSource = Imaging.CreateBitmapSourceFromHBitmap(
-                        hBitmap,
-                        nint.Zero,
-                        Int32Rect.Empty,
-                        BitmapSizeOptions.FromEmptyOptions());
-                    bmpSource.Freeze();
-                }
-                finally
+                    biSize = Marshal.SizeOf<NativeMethods.BITMAPINFOHEADER>(),
+                    biWidth = width,
+                    biHeight = -height, // トップダウン
+                    biPlanes = 1,
+                    biBitCount = 32, // BGRA
+                    biCompression = 0
+                };
+
+                using var frameMat = new Mat(height, width, MatType.CV_8UC4);
+                NativeMethods.GetDIBits(hDestDC, hBitmap, 0, (uint)height, frameMat.Data, ref bmi, 0);
+
+                // GDIリソースの安全な解放
+                NativeMethods.SelectObject(hDestDC, hOldBitmap);
+                NativeMethods.DeleteObject(hBitmap);
+                NativeMethods.DeleteDC(hDestDC);
+                NativeMethods.ReleaseDC(srcHwnd, hSrcDC);
+
+                // 合成サービス用に最新フレームを保管
+                lock (_frameLock)
                 {
-                    // GDIリソースの安全な解放
-                    NativeMethods.SelectObject(hDestDC, hOldBitmap);
-                    NativeMethods.DeleteObject(hBitmap);
-                    NativeMethods.DeleteDC(hDestDC);
-                    NativeMethods.ReleaseDC(srcHwnd, hSrcDC);
+                    frameMat.CopyTo(_latestFrame);
                 }
 
-                if (bmpSource != null)
-                {
-                    FrameArrived?.Invoke(bmpSource);
-                }
+                // プレビュー表示用 BitmapSource を生成
+                var bmpSource = frameMat.ToWriteableBitmap();
+                bmpSource.Freeze();
+
+                FrameArrived?.Invoke(bmpSource);
 
                 // FPS計算
                 frameCount++;
@@ -214,5 +241,9 @@ public class ScreenCaptureService : IDisposable
     public void Dispose()
     {
         Stop();
+        lock (_frameLock)
+        {
+            _latestFrame.Dispose();
+        }
     }
 }

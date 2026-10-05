@@ -45,6 +45,14 @@
     <sys:String x:Key="AudioStatusStopped">Microphone stopped</sys:String>
     <sys:String x:Key="AudioMuteLabel">Mute</sys:String>
 
+    <!-- Stream Composite Preview Section -->
+    <sys:String x:Key="StreamSectionTitle">Stream Output Preview (Final Composite)</sys:String>
+    <sys:String x:Key="StreamLiveBadge">PROGRAM OUT</sys:String>
+    <sys:String x:Key="StreamPipCameraTitle">Webcam (PiP)</sys:String>
+    <sys:String x:Key="StreamStatusRunning">Compositing stream output</sys:String>
+    <sys:String x:Key="StreamStatusStopped">Compositor stopped</sys:String>
+    <sys:String x:Key="StreamPipScaleLabel">Camera Size:</sys:String>
+
     <!-- Settings & Language -->
     <sys:String x:Key="LanguageLabel">Language:</sys:String>
     <sys:String x:Key="SaveSettingsNotice">Settings are saved automatically</sys:String>

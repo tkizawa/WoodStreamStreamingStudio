@@ -6,8 +6,8 @@
         xmlns:vm="clr-namespace:WoodStreamStreamingStudio.ViewModels"
         mc:Ignorable="d"
         Title="{DynamicResource AppTitle}"
-        Height="850" Width="1300"
-        MinHeight="650" MinWidth="950"
+        Height="880" Width="1360"
+        MinHeight="680" MinWidth="1020"
         Background="{StaticResource BgDarkBrush}"
         Icon="Assets/app.ico">
 
@@ -91,8 +91,8 @@
                     <StackPanel VerticalAlignment="Center">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="WoodStream Streaming Studio" FontSize="18" FontWeight="Bold" Foreground="{StaticResource AccentBrush}" />
-                            <Border Background="#2B1638" BorderBrush="{StaticResource AccentPurpleBrush}" BorderThickness="1" CornerRadius="4" Margin="10,0,0,0" Padding="8,2" VerticalAlignment="Center">
-                                <TextBlock Text="{DynamicResource HeaderRehearsalBadge}" FontSize="10" FontWeight="Bold" Foreground="#D59BFF" />
+                            <Border Background="#381D26" BorderBrush="{StaticResource LiveRedBrush}" BorderThickness="1" CornerRadius="4" Margin="10,0,0,0" Padding="8,2" VerticalAlignment="Center">
+                                <TextBlock Text="{DynamicResource StreamLiveBadge}" FontSize="10" FontWeight="Bold" Foreground="{StaticResource LiveRedBrush}" />
                             </Border>
                         </StackPanel>
                         <TextBlock Text="{DynamicResource HeaderSubtitle}" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,2,0,0" />
@@ -110,100 +110,61 @@
             </Grid>
         </Border>
 
-        <!-- 2. メインプレビュー領域 -->
+        <!-- 2. メインプレビュー領域（左: 配信用プレビュー、右: 個別ソースプレビュー） -->
         <Grid Grid.Row="1" Margin="16,14,16,10">
             <Grid.ColumnDefinitions>
-                <!-- 左: Webカメラプレビュー -->
-                <ColumnDefinition Width="*" />
+                <!-- 左: 配信用プレビュー（PROGRAM OUT・最終合成） -->
+                <ColumnDefinition Width="1.25*" />
                 <!-- スプリッター -->
                 <ColumnDefinition Width="14" />
-                <!-- 右: 画面キャプチャプレビュー -->
+                <!-- 右: 個別入力ソース（Webカメラ & 画面キャプチャ） -->
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
 
-            <!-- 左パネル: Webカメラ プレビュー -->
+            <!-- ======================================================== -->
+            <!-- 左パネル: 配信用プレビュー (最終合成・PiP)                 -->
+            <!-- ======================================================== -->
             <Border Grid.Column="0" Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="14">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
 
-                    <!-- セクションタイトル -->
-                    <DockPanel Grid.Row="0" Margin="0,0,0,10">
-                        <Ellipse Width="10" Height="10" Fill="{StaticResource AccentBrush}" Margin="0,0,8,0" VerticalAlignment="Center" />
-                        <TextBlock Text="{DynamicResource CameraSectionTitle}" FontSize="15" FontWeight="Bold" VerticalAlignment="Center" />
+                    <!-- セクションタイトル & ステータス -->
+                    <DockPanel Grid.Row="0" Margin="0,0,0,12">
+                        <Ellipse Width="10" Height="10" Fill="{StaticResource LiveRedBrush}" Margin="0,0,8,0" VerticalAlignment="Center" />
+                        <TextBlock Text="{DynamicResource StreamSectionTitle}" FontSize="16" FontWeight="Bold" VerticalAlignment="Center" />
+                        <Border Background="#2B1638" BorderBrush="{StaticResource AccentPurpleBrush}" BorderThickness="1" CornerRadius="4" Margin="10,0,0,0" Padding="8,2" VerticalAlignment="Center">
+                            <TextBlock Text="PiP (画面 + カメラ)" FontSize="10" FontWeight="Bold" Foreground="#D59BFF" />
+                        </Border>
                         <!-- 右寄せステータス -->
-                        <Border Background="#12131A" CornerRadius="4" Padding="8,2" HorizontalAlignment="Right">
-                            <TextBlock Text="{Binding CameraStatusText}" FontSize="11" Foreground="{StaticResource AccentBrush}" FontFamily="Consolas, Segoe UI" />
+                        <Border Background="#12131A" CornerRadius="4" Padding="10,3" HorizontalAlignment="Right">
+                            <TextBlock Text="{Binding StreamStatusText}" FontSize="12" Foreground="{StaticResource AccentBrush}" FontFamily="Consolas, Segoe UI" FontWeight="SemiBold" />
                         </Border>
                     </DockPanel>
 
-                    <!-- コントロールバー（カメラ選択、開始停止、ミラー） -->
-                    <Grid Grid.Row="1" Margin="0,0,0,12">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-
-                        <!-- カメラ ComboBox -->
-                        <ComboBox Grid.Column="0"
-                                  ItemsSource="{Binding CameraDevices}"
-                                  SelectedItem="{Binding SelectedCameraDevice, Mode=TwoWay}"
-                                  DisplayMemberPath="Name"
-                                  Margin="0,0,8,0" />
-
-                        <!-- ミラートグル -->
-                        <CheckBox Grid.Column="1"
-                                  Content="{DynamicResource CameraFlip}"
-                                  IsChecked="{Binding IsCameraMirror, Mode=TwoWay}"
-                                  VerticalAlignment="Center"
-                                  Foreground="{StaticResource TextSecondaryBrush}"
-                                  Margin="0,0,10,0" />
-
-                        <!-- 開始停止ボタン -->
-                        <Button Grid.Column="2"
-                                Command="{Binding ToggleCameraCommand}"
-                                MinWidth="95">
-                            <Button.Style>
-                                <Style TargetType="Button" BasedOn="{StaticResource StudioButtonStyle}">
-                                    <Setter Property="Content" Value="{DynamicResource CameraStart}" />
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding IsCameraRunning}" Value="True">
-                                            <Setter Property="Content" Value="{DynamicResource CameraStop}" />
-                                            <Setter Property="Background" Value="#381D26" />
-                                            <Setter Property="Foreground" Value="{StaticResource LiveRedBrush}" />
-                                            <Setter Property="BorderBrush" Value="{StaticResource LiveRedBrush}" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </Button.Style>
-                        </Button>
-                    </Grid>
-
-                    <!-- 映像プレビューモニター -->
-                    <Border Grid.Row="2" Background="#0A0B0E" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="6" ClipToBounds="True">
+                    <!-- 配信用合成映像プレビューモニター -->
+                    <Border Grid.Row="1" Background="#0A0B0E" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="6" ClipToBounds="True">
                         <Grid>
-                            <!-- プレースホルダー（カメラ停止時） -->
+                            <!-- プレースホルダー（合成映像なし時） -->
                             <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
                                 <StackPanel.Style>
                                     <Style TargetType="StackPanel">
                                         <Setter Property="Visibility" Value="Collapsed" />
                                         <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsCameraRunning}" Value="False">
+                                            <DataTrigger Binding="{Binding StreamPreviewImage}" Value="{x:Null}">
                                                 <Setter Property="Visibility" Value="Visible" />
                                             </DataTrigger>
                                         </Style.Triggers>
                                     </Style>
                                 </StackPanel.Style>
-                                <TextBlock Text="📷" FontSize="40" HorizontalAlignment="Center" Opacity="0.4" Margin="0,0,0,8" />
-                                <TextBlock Text="{DynamicResource CameraStatusStopped}" FontSize="13" Foreground="{StaticResource TextSecondaryBrush}" HorizontalAlignment="Center" />
+                                <TextBlock Text="🎬" FontSize="44" HorizontalAlignment="Center" Opacity="0.4" Margin="0,0,0,8" />
+                                <TextBlock Text="{DynamicResource StreamStatusStopped}" FontSize="14" Foreground="{StaticResource TextSecondaryBrush}" HorizontalAlignment="Center" />
                             </StackPanel>
 
-                            <!-- カメラ映像 Image コントロール -->
-                            <Image Source="{Binding CameraPreviewImage}"
+                            <!-- 配信用プレビュー Image コントロール -->
+                            <Image Source="{Binding StreamPreviewImage}"
                                    Stretch="Uniform"
                                    RenderOptions.BitmapScalingMode="HighQuality" />
                         </Grid>
@@ -214,94 +175,188 @@
             <!-- グリッドスプリッター -->
             <GridSplitter Grid.Column="1" HorizontalAlignment="Stretch" Background="Transparent" />
 
-            <!-- 右パネル: 画面 / ウィンドウ キャプチャ -->
-            <Border Grid.Column="2" Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="14">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="*" />
-                    </Grid.RowDefinitions>
+            <!-- ======================================================== -->
+            <!-- 右パネル: 個別入力ソース確認（上: カメラ、下: 画面）      -->
+            <!-- ======================================================== -->
+            <Grid Grid.Column="2">
+                <Grid.RowDefinitions>
+                    <!-- 上段: Webカメラ -->
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="12" />
+                    <!-- 下段: 画面 / ウィンドウ キャプチャ -->
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
 
-                    <!-- セクションタイトル -->
-                    <DockPanel Grid.Row="0" Margin="0,0,0,10">
-                        <Ellipse Width="10" Height="10" Fill="{StaticResource AccentPurpleBrush}" Margin="0,0,8,0" VerticalAlignment="Center" />
-                        <TextBlock Text="{DynamicResource ScreenSectionTitle}" FontSize="15" FontWeight="Bold" VerticalAlignment="Center" />
-                        <!-- 右寄せステータス -->
-                        <Border Background="#12131A" CornerRadius="4" Padding="8,2" HorizontalAlignment="Right">
-                            <TextBlock Text="{Binding ScreenStatusText}" FontSize="11" Foreground="{StaticResource AccentPurpleBrush}" FontFamily="Consolas, Segoe UI" />
-                        </Border>
-                    </DockPanel>
+                <!-- 上段: Webカメラ プレビュー -->
+                <Border Grid.Row="0" Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="12">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
 
-                    <!-- コントロールバー（ソース選択、更新、開始停止） -->
-                    <Grid Grid.Row="1" Margin="0,0,0,12">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
+                        <!-- セクションタイトル -->
+                        <DockPanel Grid.Row="0" Margin="0,0,0,8">
+                            <Ellipse Width="8" Height="8" Fill="{StaticResource AccentBrush}" Margin="0,0,6,0" VerticalAlignment="Center" />
+                            <TextBlock Text="{DynamicResource CameraSectionTitle}" FontSize="13" FontWeight="Bold" VerticalAlignment="Center" />
+                            <Border Background="#12131A" CornerRadius="4" Padding="6,2" HorizontalAlignment="Right">
+                                <TextBlock Text="{Binding CameraStatusText}" FontSize="10" Foreground="{StaticResource AccentBrush}" FontFamily="Consolas, Segoe UI" />
+                            </Border>
+                        </DockPanel>
 
-                        <!-- ソース ComboBox -->
-                        <ComboBox Grid.Column="0"
-                                  ItemsSource="{Binding CaptureSources}"
-                                  SelectedItem="{Binding SelectedCaptureSource, Mode=TwoWay}"
-                                  DisplayMemberPath="Title"
-                                  Margin="0,0,8,0" />
+                        <!-- コントロールバー（カメラ選択、開始停止、ミラー） -->
+                        <Grid Grid.Row="1" Margin="0,0,0,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
 
-                        <!-- 一覧更新ボタン -->
-                        <Button Grid.Column="1"
-                                Command="{Binding RefreshScreenSourcesCommand}"
-                                Content="{DynamicResource ScreenRefresh}"
-                                Style="{StaticResource StudioButtonStyle}"
-                                Margin="0,0,8,0" />
+                            <ComboBox Grid.Column="0"
+                                      ItemsSource="{Binding CameraDevices}"
+                                      SelectedItem="{Binding SelectedCameraDevice, Mode=TwoWay}"
+                                      DisplayMemberPath="Name"
+                                      Margin="0,0,6,0" />
 
-                        <!-- 開始停止ボタン -->
-                        <Button Grid.Column="2"
-                                Command="{Binding ToggleScreenCommand}"
-                                MinWidth="95">
-                            <Button.Style>
-                                <Style TargetType="Button" BasedOn="{StaticResource StudioButtonStyle}">
-                                    <Setter Property="Content" Value="{DynamicResource ScreenStart}" />
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding IsScreenRunning}" Value="True">
-                                            <Setter Property="Content" Value="{DynamicResource ScreenStop}" />
-                                            <Setter Property="Background" Value="#381D26" />
-                                            <Setter Property="Foreground" Value="{StaticResource LiveRedBrush}" />
-                                            <Setter Property="BorderBrush" Value="{StaticResource LiveRedBrush}" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </Button.Style>
-                        </Button>
-                    </Grid>
+                            <CheckBox Grid.Column="1"
+                                      Content="{DynamicResource CameraFlip}"
+                                      IsChecked="{Binding IsCameraMirror, Mode=TwoWay}"
+                                      VerticalAlignment="Center"
+                                      Foreground="{StaticResource TextSecondaryBrush}"
+                                      Margin="0,0,8,0" />
 
-                    <!-- 画面プレビューモニター -->
-                    <Border Grid.Row="2" Background="#0A0B0E" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="6" ClipToBounds="True">
-                        <Grid>
-                            <!-- プレースホルダー（画面キャプチャ停止時） -->
-                            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-                                <StackPanel.Style>
-                                    <Style TargetType="StackPanel">
-                                        <Setter Property="Visibility" Value="Collapsed" />
+                            <Button Grid.Column="2"
+                                    Command="{Binding ToggleCameraCommand}"
+                                    MinWidth="85">
+                                <Button.Style>
+                                    <Style TargetType="Button" BasedOn="{StaticResource StudioButtonStyle}">
+                                        <Setter Property="Content" Value="{DynamicResource CameraStart}" />
                                         <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsScreenRunning}" Value="False">
-                                                <Setter Property="Visibility" Value="Visible" />
+                                            <DataTrigger Binding="{Binding IsCameraRunning}" Value="True">
+                                                <Setter Property="Content" Value="{DynamicResource CameraStop}" />
+                                                <Setter Property="Background" Value="#381D26" />
+                                                <Setter Property="Foreground" Value="{StaticResource LiveRedBrush}" />
+                                                <Setter Property="BorderBrush" Value="{StaticResource LiveRedBrush}" />
                                             </DataTrigger>
                                         </Style.Triggers>
                                     </Style>
-                                </StackPanel.Style>
-                                <TextBlock Text="🖥️" FontSize="40" HorizontalAlignment="Center" Opacity="0.4" Margin="0,0,0,8" />
-                                <TextBlock Text="{DynamicResource ScreenStatusStopped}" FontSize="13" Foreground="{StaticResource TextSecondaryBrush}" HorizontalAlignment="Center" />
-                            </StackPanel>
-
-                            <!-- 画面キャプチャ Image コントロール -->
-                            <Image Source="{Binding ScreenPreviewImage}"
-                                   Stretch="Uniform"
-                                   RenderOptions.BitmapScalingMode="HighQuality" />
+                                </Button.Style>
+                            </Button>
                         </Grid>
-                    </Border>
-                </Grid>
-            </Border>
+
+                        <!-- カメラプレビューモニター -->
+                        <Border Grid.Row="2" Background="#0A0B0E" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="4" ClipToBounds="True">
+                            <Grid>
+                                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <StackPanel.Style>
+                                        <Style TargetType="StackPanel">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsCameraRunning}" Value="False">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </StackPanel.Style>
+                                    <TextBlock Text="📷" FontSize="28" HorizontalAlignment="Center" Opacity="0.4" Margin="0,0,0,4" />
+                                    <TextBlock Text="{DynamicResource CameraStatusStopped}" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" HorizontalAlignment="Center" />
+                                </StackPanel>
+
+                                <Image Source="{Binding CameraPreviewImage}"
+                                       Stretch="Uniform"
+                                       RenderOptions.BitmapScalingMode="HighQuality" />
+                            </Grid>
+                        </Border>
+                    </Grid>
+                </Border>
+
+                <!-- グリッドスプリッター -->
+                <GridSplitter Grid.Row="1" HorizontalAlignment="Stretch" Background="Transparent" />
+
+                <!-- 下段: 画面 / ウィンドウ キャプチャ プレビュー -->
+                <Border Grid.Row="2" Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="12">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+
+                        <!-- セクションタイトル -->
+                        <DockPanel Grid.Row="0" Margin="0,0,0,8">
+                            <Ellipse Width="8" Height="8" Fill="{StaticResource AccentPurpleBrush}" Margin="0,0,6,0" VerticalAlignment="Center" />
+                            <TextBlock Text="{DynamicResource ScreenSectionTitle}" FontSize="13" FontWeight="Bold" VerticalAlignment="Center" />
+                            <Border Background="#12131A" CornerRadius="4" Padding="6,2" HorizontalAlignment="Right">
+                                <TextBlock Text="{Binding ScreenStatusText}" FontSize="10" Foreground="{StaticResource AccentPurpleBrush}" FontFamily="Consolas, Segoe UI" />
+                            </Border>
+                        </DockPanel>
+
+                        <!-- コントロールバー（ソース選択、更新、開始停止） -->
+                        <Grid Grid.Row="1" Margin="0,0,0,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <ComboBox Grid.Column="0"
+                                      ItemsSource="{Binding CaptureSources}"
+                                      SelectedItem="{Binding SelectedCaptureSource, Mode=TwoWay}"
+                                      DisplayMemberPath="Title"
+                                      Margin="0,0,6,0" />
+
+                            <Button Grid.Column="1"
+                                    Command="{Binding RefreshScreenSourcesCommand}"
+                                    Content="{DynamicResource ScreenRefresh}"
+                                    Style="{StaticResource StudioButtonStyle}"
+                                    Margin="0,0,6,0" />
+
+                            <Button Grid.Column="2"
+                                    Command="{Binding ToggleScreenCommand}"
+                                    MinWidth="85">
+                                <Button.Style>
+                                    <Style TargetType="Button" BasedOn="{StaticResource StudioButtonStyle}">
+                                        <Setter Property="Content" Value="{DynamicResource ScreenStart}" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsScreenRunning}" Value="True">
+                                                <Setter Property="Content" Value="{DynamicResource ScreenStop}" />
+                                                <Setter Property="Background" Value="#381D26" />
+                                                <Setter Property="Foreground" Value="{StaticResource LiveRedBrush}" />
+                                                <Setter Property="BorderBrush" Value="{StaticResource LiveRedBrush}" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                            </Button>
+                        </Grid>
+
+                        <!-- 画面プレビューモニター -->
+                        <Border Grid.Row="2" Background="#0A0B0E" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="4" ClipToBounds="True">
+                            <Grid>
+                                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <StackPanel.Style>
+                                        <Style TargetType="StackPanel">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsScreenRunning}" Value="False">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </StackPanel.Style>
+                                    <TextBlock Text="🖥️" FontSize="28" HorizontalAlignment="Center" Opacity="0.4" Margin="0,0,0,4" />
+                                    <TextBlock Text="{DynamicResource ScreenStatusStopped}" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" HorizontalAlignment="Center" />
+                                </StackPanel>
+
+                                <Image Source="{Binding ScreenPreviewImage}"
+                                       Stretch="Uniform"
+                                       RenderOptions.BitmapScalingMode="HighQuality" />
+                            </Grid>
+                        </Border>
+                    </Grid>
+                </Border>
+            </Grid>
         </Grid>
 
         <!-- 3. マイク・オーディオ設定パネル (下部) -->

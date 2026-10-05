@@ -45,6 +45,14 @@
     <sys:String x:Key="AudioStatusStopped">マイク停止中</sys:String>
     <sys:String x:Key="AudioMuteLabel">ミュート</sys:String>
 
+    <!-- 配信用プレビュー（合成）セクション -->
+    <sys:String x:Key="StreamSectionTitle">配信用プレビュー (最終合成映像)</sys:String>
+    <sys:String x:Key="StreamLiveBadge">PROGRAM OUT</sys:String>
+    <sys:String x:Key="StreamPipCameraTitle">Webカメラ (PiP)</sys:String>
+    <sys:String x:Key="StreamStatusRunning">合成映像を出力中</sys:String>
+    <sys:String x:Key="StreamStatusStopped">合成停止中</sys:String>
+    <sys:String x:Key="StreamPipScaleLabel">カメラ枠サイズ:</sys:String>
+
     <!-- 設定・言語 -->
     <sys:String x:Key="LanguageLabel">言語 (Language):</sys:String>
     <sys:String x:Key="SaveSettingsNotice">設定は自動保存されます</sys:String>
