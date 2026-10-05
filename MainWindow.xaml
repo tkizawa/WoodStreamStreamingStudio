@@ -122,21 +122,22 @@
             </Grid.ColumnDefinitions>
 
             <!-- ======================================================== -->
-            <!-- 左パネル: 配信用プレビュー (最終合成・PiP)                 -->
+            <!-- 左パネル: 配信用プレビュー (最終合成・PiP) + チャットオーバーレイ -->
             <!-- ======================================================== -->
             <Border Grid.Column="0" Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="14">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
 
                     <!-- セクションタイトル & ステータス -->
-                    <DockPanel Grid.Row="0" Margin="0,0,0,12">
+                    <DockPanel Grid.Row="0" Margin="0,0,0,10">
                         <Ellipse Width="10" Height="10" Fill="{StaticResource LiveRedBrush}" Margin="0,0,8,0" VerticalAlignment="Center" />
-                        <TextBlock Text="{DynamicResource StreamSectionTitle}" FontSize="16" FontWeight="Bold" VerticalAlignment="Center" />
-                        <Border Background="#2B1638" BorderBrush="{StaticResource AccentPurpleBrush}" BorderThickness="1" CornerRadius="4" Margin="10,0,0,0" Padding="8,2" VerticalAlignment="Center">
-                            <TextBlock Text="PiP (画面 + カメラ)" FontSize="10" FontWeight="Bold" Foreground="#D59BFF" />
+                        <TextBlock Text="{DynamicResource StreamSectionTitle}" FontSize="15" FontWeight="Bold" VerticalAlignment="Center" />
+                        <Border Background="#381D26" BorderBrush="{StaticResource LiveRedBrush}" BorderThickness="1" CornerRadius="4" Margin="10,0,0,0" Padding="8,2" VerticalAlignment="Center">
+                            <TextBlock Text="{DynamicResource StreamLiveBadge}" FontSize="10" FontWeight="Bold" Foreground="{StaticResource LiveRedBrush}" />
                         </Border>
                         <!-- 右寄せステータス -->
                         <Border Background="#12131A" CornerRadius="4" Padding="10,3" HorizontalAlignment="Right">
@@ -144,8 +145,43 @@
                         </Border>
                     </DockPanel>
 
-                    <!-- 配信用合成映像プレビューモニター -->
-                    <Border Grid.Row="1" Background="#0A0B0E" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="6" ClipToBounds="True">
+                    <!-- YouTube チャット設定バー（APIキー, 配信URL, 接続ボタン） -->
+                    <Border Grid.Row="1" Background="#14151E" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="6" Padding="10,8" Margin="0,0,0,10">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="130" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <TextBlock Grid.Column="0" Text="{DynamicResource YouTubeApiKeyLabel}" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,6,0" />
+                            <TextBox Grid.Column="1" Text="{Binding YouTubeApiKey, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,10,0" />
+
+                            <TextBlock Grid.Column="2" Text="{DynamicResource YouTubeLiveUrlLabel}" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,6,0" />
+                            <TextBox Grid.Column="3" Text="{Binding YouTubeLiveUrl, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,10,0" />
+
+                            <Button Grid.Column="4" Command="{Binding ToggleChatCommand}" MinWidth="90">
+                                <Button.Style>
+                                    <Style TargetType="Button" BasedOn="{StaticResource StudioButtonStyle}">
+                                        <Setter Property="Content" Value="{DynamicResource YouTubeStartChat}" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsChatPolling}" Value="True">
+                                                <Setter Property="Content" Value="{DynamicResource YouTubeStopChat}" />
+                                                <Setter Property="Background" Value="#381D26" />
+                                                <Setter Property="Foreground" Value="{StaticResource LiveRedBrush}" />
+                                                <Setter Property="BorderBrush" Value="{StaticResource LiveRedBrush}" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                            </Button>
+                        </Grid>
+                    </Border>
+
+                    <!-- 配信用合成映像プレビューモニター + 半透明チャットオーバーレイ -->
+                    <Border Grid.Row="2" Background="#0A0B0E" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="6" ClipToBounds="True">
                         <Grid>
                             <!-- プレースホルダー（合成映像なし時） -->
                             <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
@@ -167,6 +203,90 @@
                             <Image Source="{Binding StreamPreviewImage}"
                                    Stretch="Uniform"
                                    RenderOptions.BitmapScalingMode="HighQuality" />
+
+                            <!-- 右側: 半透明 YouTube ライブチャット オーバーレイパネル -->
+                            <Border HorizontalAlignment="Right"
+                                    VerticalAlignment="Stretch"
+                                    Width="260"
+                                    Background="#D6101117"
+                                    BorderBrush="#383B4E"
+                                    BorderThickness="1,0,0,0">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="*" />
+                                    </Grid.RowDefinitions>
+
+                                    <!-- チャットヘッダー -->
+                                    <Border Grid.Row="0" Background="#331A1C28" BorderBrush="#252735" BorderThickness="0,0,0,1" Padding="10,6">
+                                        <DockPanel>
+                                            <Ellipse Width="6" Height="6" Fill="#FF2D55" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                            <TextBlock Text="{DynamicResource YouTubeSectionTitle}" FontSize="11" FontWeight="Bold" VerticalAlignment="Center" />
+                                            <TextBlock Text="{Binding ChatStatusText}" FontSize="10" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Right" VerticalAlignment="Center" FontFamily="Consolas, Segoe UI" />
+                                        </DockPanel>
+                                    </Border>
+
+                                    <!-- コメント待機中プレースホルダー -->
+                                    <TextBlock Grid.Row="1"
+                                               Text="{DynamicResource YouTubeNoComments}"
+                                               FontSize="11"
+                                               Foreground="{StaticResource TextSecondaryBrush}"
+                                               TextWrapping="Wrap"
+                                               HorizontalAlignment="Center"
+                                               VerticalAlignment="Center"
+                                               Margin="14"
+                                               TextAlignment="Center">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding ChatMessages.Count}" Value="0">
+                                                        <Setter Property="Visibility" Value="Visible" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+
+                                    <!-- チャットコメントリスト (ListView) -->
+                                    <ListView Grid.Row="1"
+                                              ItemsSource="{Binding ChatMessages}"
+                                              Background="Transparent"
+                                              BorderThickness="0"
+                                              Padding="4,4"
+                                              ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                              ScrollViewer.VerticalScrollBarVisibility="Auto">
+                                        <ListView.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border Background="#40181A24" BorderBrush="#203040" BorderThickness="1" CornerRadius="5" Margin="2,3" Padding="8,6">
+                                                    <Grid>
+                                                        <Grid.RowDefinitions>
+                                                            <RowDefinition Height="Auto" />
+                                                            <RowDefinition Height="Auto" />
+                                                        </Grid.RowDefinitions>
+
+                                                        <!-- ヘッダー（投稿者・時刻） -->
+                                                        <DockPanel Grid.Row="0" Margin="0,0,0,3">
+                                                            <!-- 投稿者名 -->
+                                                            <TextBlock Text="{Binding AuthorName}" FontWeight="Bold" FontSize="11" Foreground="{StaticResource AccentBrush}" TextTrimming="CharacterEllipsis" MaxWidth="150" VerticalAlignment="Center" />
+                                                            <!-- 時刻 -->
+                                                            <TextBlock Text="{Binding TimeText}" FontSize="9" Foreground="#7A7E8C" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                                        </DockPanel>
+
+                                                        <!-- メッセージ本文 -->
+                                                        <TextBlock Grid.Row="1"
+                                                                   Text="{Binding MessageText}"
+                                                                   FontSize="12"
+                                                                   Foreground="{StaticResource TextPrimaryBrush}"
+                                                                   TextWrapping="Wrap"
+                                                                   LineHeight="16" />
+                                                    </Grid>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ListView.ItemTemplate>
+                                    </ListView>
+                                </Grid>
+                            </Border>
                         </Grid>
                     </Border>
                 </Grid>

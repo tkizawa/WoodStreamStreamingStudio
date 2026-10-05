@@ -19,6 +19,7 @@ public class MainViewModel : ViewModelBase, IDisposable
     private readonly ScreenCaptureService _screenService;
     private readonly AudioCaptureService _audioService;
     private readonly StreamCompositorService _compositorService;
+    private readonly YouTubeChatService _chatService;
     private readonly SettingsService _settingsService;
     private readonly LocalizationService _locService;
 
@@ -213,6 +214,43 @@ public class MainViewModel : ViewModelBase, IDisposable
     }
     #endregion
 
+    #region YouTube ライブチャット プロパティ
+    private string _youTubeApiKey = string.Empty;
+    public string YouTubeApiKey
+    {
+        get => _youTubeApiKey;
+        set => SetProperty(ref _youTubeApiKey, value);
+    }
+
+    private string _youTubeLiveUrl = string.Empty;
+    public string YouTubeLiveUrl
+    {
+        get => _youTubeLiveUrl;
+        set => SetProperty(ref _youTubeLiveUrl, value);
+    }
+
+    private ObservableCollection<ChatMessageItem> _chatMessages = new();
+    public ObservableCollection<ChatMessageItem> ChatMessages
+    {
+        get => _chatMessages;
+        set => SetProperty(ref _chatMessages, value);
+    }
+
+    private bool _isChatPolling;
+    public bool IsChatPolling
+    {
+        get => _isChatPolling;
+        set => SetProperty(ref _isChatPolling, value);
+    }
+
+    private string _chatStatusText = "未接続";
+    public string ChatStatusText
+    {
+        get => _chatStatusText;
+        set => SetProperty(ref _chatStatusText, value);
+    }
+    #endregion
+
     #region 言語・ステータス
     private string _currentLanguage = "auto";
     public string CurrentLanguage
@@ -237,6 +275,7 @@ public class MainViewModel : ViewModelBase, IDisposable
     public RelayCommand ToggleAudioCommand { get; }
     public RelayCommand ToggleMuteCommand { get; }
     public RelayCommand SetLanguageCommand { get; }
+    public RelayCommand ToggleChatCommand { get; }
     #endregion
 
     public MainViewModel()
@@ -247,6 +286,7 @@ public class MainViewModel : ViewModelBase, IDisposable
         _screenService = new ScreenCaptureService();
         _audioService = new AudioCaptureService();
         _compositorService = new StreamCompositorService(_cameraService, _screenService);
+        _chatService = new YouTubeChatService();
 
         _appSettings = _settingsService.Load();
         CurrentLanguage = _appSettings.Language;
@@ -254,6 +294,8 @@ public class MainViewModel : ViewModelBase, IDisposable
         _cameraService.Mirror = IsCameraMirror;
         IsAudioMuted = _appSettings.AudioMuted;
         _audioService.IsMuted = IsAudioMuted;
+        YouTubeApiKey = _appSettings.YouTubeApiKey ?? string.Empty;
+        YouTubeLiveUrl = _appSettings.YouTubeLiveUrl ?? string.Empty;
 
         // イベント購読
         _cameraService.FrameArrived += OnCameraFrameArrived;
@@ -270,6 +312,10 @@ public class MainViewModel : ViewModelBase, IDisposable
         _audioService.AudioLevelChanged += OnAudioLevelChanged;
         _audioService.ErrorOccurred += OnServiceError;
 
+        _chatService.MessagesReceived += OnChatMessagesReceived;
+        _chatService.StatusChanged += OnChatStatusChanged;
+        _chatService.ErrorOccurred += OnServiceError;
+
         // コマンド初期化
         ToggleCameraCommand = new RelayCommand(ToggleCamera);
         ToggleCameraMirrorCommand = new RelayCommand(() => IsCameraMirror = !IsCameraMirror);
@@ -277,6 +323,7 @@ public class MainViewModel : ViewModelBase, IDisposable
         RefreshScreenSourcesCommand = new RelayCommand(RefreshScreenSources);
         ToggleAudioCommand = new RelayCommand(ToggleAudio);
         ToggleMuteCommand = new RelayCommand(() => IsAudioMuted = !IsAudioMuted);
+        ToggleChatCommand = new RelayCommand(ToggleChat);
         SetLanguageCommand = new RelayCommand(param =>
         {
             if (param is string lang)
@@ -496,6 +543,62 @@ public class MainViewModel : ViewModelBase, IDisposable
     }
     #endregion
 
+    #region YouTube チャット制御
+    private async void ToggleChat()
+    {
+        if (IsChatPolling)
+        {
+            _chatService.StopPolling();
+            IsChatPolling = false;
+            ChatStatusText = "停止中";
+        }
+        else
+        {
+            if (string.IsNullOrWhiteSpace(YouTubeApiKey))
+            {
+                StatusMessage = "YouTube APIキーを入力してください。";
+                return;
+            }
+            if (string.IsNullOrWhiteSpace(YouTubeLiveUrl))
+            {
+                StatusMessage = "YouTube ライブ配信URLまたはVideo IDを入力してください。";
+                return;
+            }
+
+            SaveSettings();
+            IsChatPolling = true;
+            await _chatService.StartPollingAsync(YouTubeApiKey, YouTubeLiveUrl);
+        }
+    }
+
+    private void OnChatMessagesReceived(System.Collections.Generic.List<ChatMessageItem> newMessages)
+    {
+        // UIスレッドのブロックや例外を防ぐため、必ず Dispatcher.InvokeAsync を使用
+        Application.Current.Dispatcher.InvokeAsync(() =>
+        {
+            foreach (var msg in newMessages)
+            {
+                ChatMessages.Add(msg);
+            }
+
+            // メモリ肥大化防止（最新200件保持）
+            while (ChatMessages.Count > 200)
+            {
+                ChatMessages.RemoveAt(0);
+            }
+        }, System.Windows.Threading.DispatcherPriority.Background);
+    }
+
+    private void OnChatStatusChanged(string status)
+    {
+        Application.Current.Dispatcher.InvokeAsync(() =>
+        {
+            ChatStatusText = status;
+            StatusMessage = $"[YouTube] {status}";
+        });
+    }
+    #endregion
+
     private void OnServiceError(string message)
     {
         Application.Current.Dispatcher.InvokeAsync(() =>
@@ -522,6 +625,9 @@ public class MainViewModel : ViewModelBase, IDisposable
         _appSettings.AudioMuted = IsAudioMuted;
         _appSettings.Language = CurrentLanguage;
 
+        _appSettings.YouTubeApiKey = YouTubeApiKey;
+        _appSettings.YouTubeLiveUrl = YouTubeLiveUrl;
+
         _settingsService.Save(_appSettings);
     }
 
@@ -545,6 +651,7 @@ public class MainViewModel : ViewModelBase, IDisposable
 
     public void Dispose()
     {
+        _chatService.Dispose();
         _compositorService.Dispose();
         _cameraService.Dispose();
         _screenService.Dispose();

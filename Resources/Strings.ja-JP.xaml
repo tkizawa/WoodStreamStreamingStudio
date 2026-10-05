@@ -53,6 +53,17 @@
     <sys:String x:Key="StreamStatusStopped">合成停止中</sys:String>
     <sys:String x:Key="StreamPipScaleLabel">カメラ枠サイズ:</sys:String>
 
+    <!-- YouTube ライブチャットセクション -->
+    <sys:String x:Key="YouTubeSectionTitle">YouTube ライブチャット</sys:String>
+    <sys:String x:Key="YouTubeApiKeyLabel">API キー:</sys:String>
+    <sys:String x:Key="YouTubeApiKeyPlaceholder">YouTube Data API v3 キー</sys:String>
+    <sys:String x:Key="YouTubeLiveUrlLabel">配信 URL / ID:</sys:String>
+    <sys:String x:Key="YouTubeLiveUrlPlaceholder">ライブ配信URL または Video ID</sys:String>
+    <sys:String x:Key="YouTubeStartChat">チャット取得開始</sys:String>
+    <sys:String x:Key="YouTubeStopChat">取得停止</sys:String>
+    <sys:String x:Key="YouTubeNoComments">チャットコメントを受信するとここに表示されます</sys:String>
+    <sys:String x:Key="YouTubeChatBadge">LIVE CHAT</sys:String>
+
     <!-- 設定・言語 -->
     <sys:String x:Key="LanguageLabel">言語 (Language):</sys:String>
     <sys:String x:Key="SaveSettingsNotice">設定は自動保存されます</sys:String>

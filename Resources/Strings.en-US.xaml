@@ -53,6 +53,17 @@
     <sys:String x:Key="StreamStatusStopped">Compositor stopped</sys:String>
     <sys:String x:Key="StreamPipScaleLabel">Camera Size:</sys:String>
 
+    <!-- YouTube Live Chat Section -->
+    <sys:String x:Key="YouTubeSectionTitle">YouTube Live Chat</sys:String>
+    <sys:String x:Key="YouTubeApiKeyLabel">API Key:</sys:String>
+    <sys:String x:Key="YouTubeApiKeyPlaceholder">YouTube Data API v3 Key</sys:String>
+    <sys:String x:Key="YouTubeLiveUrlLabel">Stream URL / ID:</sys:String>
+    <sys:String x:Key="YouTubeLiveUrlPlaceholder">Live stream URL or Video ID</sys:String>
+    <sys:String x:Key="YouTubeStartChat">Connect Chat</sys:String>
+    <sys:String x:Key="YouTubeStopChat">Disconnect</sys:String>
+    <sys:String x:Key="YouTubeNoComments">Waiting for live chat messages...</sys:String>
+    <sys:String x:Key="YouTubeChatBadge">LIVE CHAT</sys:String>
+
     <!-- Settings & Language -->
     <sys:String x:Key="LanguageLabel">Language:</sys:String>
     <sys:String x:Key="SaveSettingsNotice">Settings are saved automatically</sys:String>

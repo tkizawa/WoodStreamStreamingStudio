@@ -39,4 +39,10 @@ public class AppSettings
 
     /// <summary>言語設定 ("auto", "ja", "en")</summary>
     public string Language { get; set; } = "auto";
+
+    /// <summary>YouTube Data API v3 APIキー</summary>
+    public string? YouTubeApiKey { get; set; }
+
+    /// <summary>YouTube ライブ配信URLまたはVideo ID</summary>
+    public string? YouTubeLiveUrl { get; set; }
 }
