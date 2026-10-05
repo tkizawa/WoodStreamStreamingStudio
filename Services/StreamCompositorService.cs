@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using System.Windows.Media.Imaging;
 using OpenCvSharp;
 using OpenCvSharp.WpfExtensions;
+using WoodStreamStreamingStudio.Models;
 
 namespace WoodStreamStreamingStudio.Services;
 
@@ -25,6 +26,9 @@ public class StreamCompositorService : IDisposable
     public int CompositingFps { get; private set; }
     public int OutputWidth { get; private set; }
     public int OutputHeight { get; private set; }
+
+    /// <summary>配信映像モード（PiP合成、画面のみ、カメラのみ）</summary>
+    public BroadcastMode CurrentMode { get; set; } = BroadcastMode.PictureInPicture;
 
     /// <summary>WebカメラPiPの縮小スケール (背景幅に対する割合: 例 0.25 = 25%)</summary>
     public double PipScale { get; set; } = 0.25;
@@ -48,7 +52,7 @@ public class StreamCompositorService : IDisposable
     }
 
     /// <summary>
-    /// リアルタイム映像合成を開始します (目標 30~60 FPS)
+    /// リアルタイム映像合成を開始します (目標 60 FPS)
     /// </summary>
     public void Start()
     {
@@ -92,43 +96,52 @@ public class StreamCompositorService : IDisposable
                 // 最終合成用フレーム
                 using var compositeMat = new Mat();
 
-                if (hasScreen && !backgroundMat.Empty())
+                switch (CurrentMode)
                 {
-                    // 画面キャプチャをベースとする
-                    backgroundMat.CopyTo(compositeMat);
-                }
-                else if (hasCamera && !cameraMat.Empty())
-                {
-                    // 画面キャプチャがない場合はカメラ全画面
-                    cameraMat.CopyTo(compositeMat);
-                }
-                else
-                {
-                    // どちらもない場合は 1920x1080 のスタジオ待機画面を作成
-                    compositeMat.Create(1080, 1920, MatType.CV_8UC4);
-                    compositeMat.SetTo(new Scalar(26, 19, 18, 255)); // #12131A
+                    case BroadcastMode.ScreenOnly:
+                        // 画面キャプチャのみを配信
+                        if (hasScreen && !backgroundMat.Empty())
+                        {
+                            backgroundMat.CopyTo(compositeMat);
+                        }
+                        else
+                        {
+                            DrawWaitingScreen(compositeMat, "SCREEN CAPTURE ONLY", "WAITING FOR SCREEN INPUT...");
+                        }
+                        break;
 
-                    // グリッド線描画
-                    for (int x = 0; x < 1920; x += 120)
-                    {
-                        Cv2.Line(compositeMat, new OpenCvSharp.Point(x, 0), new OpenCvSharp.Point(x, 1080), new Scalar(48, 42, 35, 255), 1);
-                    }
-                    for (int y = 0; y < 1080; y += 120)
-                    {
-                        Cv2.Line(compositeMat, new OpenCvSharp.Point(0, y), new OpenCvSharp.Point(1920, y), new Scalar(48, 42, 35, 255), 1);
-                    }
+                    case BroadcastMode.CameraOnly:
+                        // Webカメラ映像のみを全画面配信
+                        if (hasCamera && !cameraMat.Empty())
+                        {
+                            DrawCameraFull(compositeMat, cameraMat);
+                        }
+                        else
+                        {
+                            DrawWaitingScreen(compositeMat, "WEBCAM ONLY", "WAITING FOR WEBCAM INPUT...");
+                        }
+                        break;
 
-                    // 待機テキスト
-                    Cv2.PutText(compositeMat, "WOODSTREAM STREAMING STUDIO", new OpenCvSharp.Point(520, 520),
-                        HersheyFonts.HersheyComplex, 1.5, new Scalar(255, 210, 0, 255), 2, LineTypes.AntiAlias);
-                    Cv2.PutText(compositeMat, "WAITING FOR INPUT...", new OpenCvSharp.Point(740, 580),
-                        HersheyFonts.HersheySimplex, 1.0, new Scalar(160, 160, 160, 255), 2, LineTypes.AntiAlias);
-                }
-
-                // 3. 画面キャプチャがある状態でカメラも動作している場合、右下に縮小（PiP）して合成
-                if (hasScreen && !backgroundMat.Empty() && hasCamera && !cameraMat.Empty())
-                {
-                    ComposePip(compositeMat, cameraMat);
+                    case BroadcastMode.PictureInPicture:
+                    default:
+                        // 画面キャプチャ + WebカメラのPiP合成
+                        if (hasScreen && !backgroundMat.Empty())
+                        {
+                            backgroundMat.CopyTo(compositeMat);
+                            if (hasCamera && !cameraMat.Empty())
+                            {
+                                ComposePip(compositeMat, cameraMat);
+                            }
+                        }
+                        else if (hasCamera && !cameraMat.Empty())
+                        {
+                            DrawCameraFull(compositeMat, cameraMat);
+                        }
+                        else
+                        {
+                            DrawWaitingScreen(compositeMat, "WOODSTREAM STREAMING STUDIO", "WAITING FOR INPUT...");
+                        }
+                        break;
                 }
 
                 OutputWidth = compositeMat.Width;
@@ -169,9 +182,9 @@ public class StreamCompositorService : IDisposable
                     fpsStopwatch.Restart();
                 }
 
-                // 目標約 30~60 FPS (約16~25ms間隔)
+                // 目標約 60 FPS (約16.6ms間隔)
                 var elapsedMs = (int)((Stopwatch.GetTimestamp() - loopStart) * 1000.0 / Stopwatch.Frequency);
-                int waitMs = Math.Clamp(20 - elapsedMs, 2, 20);
+                int waitMs = Math.Clamp(16 - elapsedMs, 1, 16);
                 Thread.Sleep(waitMs);
             }
             catch (Exception ex)
@@ -232,6 +245,64 @@ public class StreamCompositorService : IDisposable
         // スタイリッシュな境界線（アクセントシアン #00D2FF / BGR: 255, 210, 0）を描画
         Cv2.Rectangle(background, new Rect(x - 2, y - 2, pipWidth + 4, pipHeight + 4),
             new Scalar(255, 210, 0, 255), 2, LineTypes.AntiAlias);
+    }
+
+    /// <summary>
+    /// カメラ映像を 1920x1080 キャンバスにアスペクト比を維持して全画面描画します
+    /// </summary>
+    private static void DrawCameraFull(Mat compositeMat, Mat cameraMat)
+    {
+        compositeMat.Create(1080, 1920, MatType.CV_8UC4);
+        compositeMat.SetTo(new Scalar(26, 19, 18, 255)); // #12131A ダークスタジオ背景
+
+        if (cameraMat.Empty() || cameraMat.Width <= 0 || cameraMat.Height <= 0) return;
+
+        double scale = Math.Min(1920.0 / cameraMat.Width, 1080.0 / cameraMat.Height);
+        int drawW = Math.Max(1, (int)(cameraMat.Width * scale));
+        int drawH = Math.Max(1, (int)(cameraMat.Height * scale));
+        int drawX = (1920 - drawW) / 2;
+        int drawY = (1080 - drawH) / 2;
+
+        using var resizedCam = new Mat();
+        Cv2.Resize(cameraMat, resizedCam, new OpenCvSharp.Size(drawW, drawH), 0, 0, InterpolationFlags.Linear);
+
+        using var convertedCam = new Mat();
+        if (resizedCam.Type() == MatType.CV_8UC3)
+        {
+            Cv2.CvtColor(resizedCam, convertedCam, ColorConversionCodes.BGR2BGRA);
+        }
+        else
+        {
+            resizedCam.CopyTo(convertedCam);
+        }
+
+        using var roi = new Mat(compositeMat, new Rect(drawX, drawY, drawW, drawH));
+        convertedCam.CopyTo(roi);
+    }
+
+    /// <summary>
+    /// スタジオ待機画面を描画します
+    /// </summary>
+    private static void DrawWaitingScreen(Mat compositeMat, string title, string subtitle)
+    {
+        compositeMat.Create(1080, 1920, MatType.CV_8UC4);
+        compositeMat.SetTo(new Scalar(26, 19, 18, 255)); // #12131A
+
+        // グリッド線描画
+        for (int x = 0; x < 1920; x += 120)
+        {
+            Cv2.Line(compositeMat, new OpenCvSharp.Point(x, 0), new OpenCvSharp.Point(x, 1080), new Scalar(48, 42, 35, 255), 1);
+        }
+        for (int y = 0; y < 1080; y += 120)
+        {
+            Cv2.Line(compositeMat, new OpenCvSharp.Point(0, y), new OpenCvSharp.Point(1920, y), new Scalar(48, 42, 35, 255), 1);
+        }
+
+        // 待機テキスト
+        Cv2.PutText(compositeMat, title, new OpenCvSharp.Point(520, 520),
+            HersheyFonts.HersheyComplex, 1.4, new Scalar(255, 210, 0, 255), 2, LineTypes.AntiAlias);
+        Cv2.PutText(compositeMat, subtitle, new OpenCvSharp.Point(680, 580),
+            HersheyFonts.HersheySimplex, 1.0, new Scalar(160, 160, 160, 255), 2, LineTypes.AntiAlias);
     }
 
     /// <summary>

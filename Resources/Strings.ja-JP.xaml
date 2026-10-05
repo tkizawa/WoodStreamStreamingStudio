@@ -80,4 +80,11 @@
     <sys:String x:Key="LanguageLabel">言語 (Language):</sys:String>
     <sys:String x:Key="SaveSettingsNotice">設定は自動保存されます</sys:String>
     <sys:String x:Key="ReadyStatus">準備完了</sys:String>
+
+    <!-- 配信映像モード -->
+    <sys:String x:Key="BroadcastModeLabel">配信映像モード:</sys:String>
+    <sys:String x:Key="BroadcastModePip">合成 (PiP)</sys:String>
+    <sys:String x:Key="BroadcastModeScreenOnly">画面のみ</sys:String>
+    <sys:String x:Key="BroadcastModeCameraOnly">カメラのみ</sys:String>
+    <sys:String x:Key="BroadcastModeAudioNotice">※マイク・カメラ音声は常に配信されます</sys:String>
 </ResourceDictionary>

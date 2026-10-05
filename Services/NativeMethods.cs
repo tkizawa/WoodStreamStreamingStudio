@@ -75,6 +75,36 @@ public static class NativeMethods
     [DllImport("gdi32.dll")]
     public static extern int GetDIBits(nint hdc, nint hbmp, uint uStartScan, uint cScanLines, nint lpvBits, ref BITMAPINFOHEADER lpbi, uint uUsage);
 
+    public const uint PW_CLIENTONLY = 0x00000001;
+    public const uint PW_RENDERFULLCONTENT = 0x00000002;
+
+    [DllImport("user32.dll")]
+    public static extern bool PrintWindow(nint hwnd, nint hdcBlt, uint nFlags);
+
+    [DllImport("user32.dll")]
+    public static extern bool IsIconic(nint hWnd);
+
+    [DllImport("user32.dll")]
+    public static extern bool IsWindow(nint hWnd);
+
+    public const int DWMWA_EXTENDED_FRAME_BOUNDS = 9;
+
+    [DllImport("dwmapi.dll")]
+    public static extern int DwmGetWindowAttribute(nint hwnd, int dwAttribute, out RECT pvAttribute, int cbAttribute);
+
+    /// <summary>
+    /// ウィンドウの正確な可視領域（不可視のマージンや影を除いた実際の境界）を取得します
+    /// </summary>
+    public static bool GetVisibleWindowRect(nint hWnd, out RECT rect)
+    {
+        int hr = DwmGetWindowAttribute(hWnd, DWMWA_EXTENDED_FRAME_BOUNDS, out rect, Marshal.SizeOf<RECT>());
+        if (hr == 0 && rect.Width > 0 && rect.Height > 0)
+        {
+            return true;
+        }
+        return GetWindowRect(hWnd, out rect);
+    }
+
     [DllImport("user32.dll")]
     public static extern bool GetWindowRect(nint hWnd, out RECT lpRect);
 
@@ -166,13 +196,12 @@ public static class NativeMethods
             // 特殊なシェルウィンドウや空のタイトルを除外
             if (string.IsNullOrWhiteSpace(title) ||
                 title == "Program Manager" ||
-                title == "Windows Shell Experience Host" ||
-                title == "Settings")
+                title == "Windows Shell Experience Host")
             {
                 return true;
             }
 
-            if (GetWindowRect(hWnd, out var rect))
+            if (GetVisibleWindowRect(hWnd, out var rect))
             {
                 if (rect.Width > 100 && rect.Height > 100)
                 {

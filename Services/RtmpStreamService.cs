@@ -78,9 +78,51 @@ public class RtmpStreamService : IDisposable
     }
 
     /// <summary>
+    /// YouTube高画質配信向け（1080p 60fps / 6000kbps）のFFmpegコマンドライン引数を生成します。
+    /// 【設定内容】
+    /// - エンコーダ: h264_nvenc (映像), aac (音声)
+    /// - 解像度: 1920x1080
+    /// - フレームレート: 60fps
+    /// - 映像ビットレート: 6000k
+    /// - 音声ビットレート: 128k
+    /// - キーフレーム間隔（GOP）: 2秒分（120）
+    /// - 出力フォーマット: flv (RTMP配信用)
+    /// </summary>
+    /// <param name="pipeFullPath">音声入力パイプのフルパス</param>
+    /// <param name="fullRtmpTarget">配信先URL（ストリームキーを含む）</param>
+    /// <param name="inputWidth">入力映像幅（既定: 1920）</param>
+    /// <param name="inputHeight">入力映像高さ（既定: 1080）</param>
+    /// <param name="inputFps">入力フレームレート（既定: 60）</param>
+    /// <returns>FFmpegプロセスのArguments文字列</returns>
+    public static string GenerateArguments(
+        string pipeFullPath,
+        string fullRtmpTarget,
+        int inputWidth = 1920,
+        int inputHeight = 1080,
+        int inputFps = 60)
+    {
+        return $"-y -re -f rawvideo -pix_fmt bgr24 -s {inputWidth}x{inputHeight} -r {inputFps} -i - " +
+               $"-f s16le -ar 44100 -ac 1 -i {pipeFullPath} " +
+               $"-c:v h264_nvenc -preset p4 -b:v 6000k -maxrate 6000k -bufsize 12000k -pix_fmt yuv420p -s 1920x1080 -r 60 -g 120 " +
+               $"-c:a aac -b:a 128k -ar 44100 " +
+               $"-f flv \"{fullRtmpTarget}\"";
+    }
+
+    /// <summary>
+    /// GenerateArguments のエイリアス
+    /// </summary>
+    public static string BuildArguments(
+        string pipeFullPath,
+        string fullRtmpTarget,
+        int inputWidth = 1920,
+        int inputHeight = 1080,
+        int inputFps = 60)
+        => GenerateArguments(pipeFullPath, fullRtmpTarget, inputWidth, inputHeight, inputFps);
+
+    /// <summary>
     /// RTMP配信を開始します
     /// </summary>
-    public async Task StartStreamingAsync(string rtmpUrl, string streamKey, int width, int height, int fps = 30)
+    public async Task StartStreamingAsync(string rtmpUrl, string streamKey, int width = 1920, int height = 1080, int fps = 60)
     {
         StopStreaming();
 
@@ -133,15 +175,8 @@ public class RtmpStreamService : IDisposable
                     PipeTransmissionMode.Byte,
                     PipeOptions.Asynchronous);
 
-                // FFmpegプロセスの起動設定
-                // 映像: stdin (-i -), 音声: pipeFullPath (-i \\.\pipe\...)
-                // ハードウェアエンコーダ (h264_nvenc) を優先、失敗時は libx264
-                string videoCodecArgs = "-c:v h264_nvenc -preset p4 -b:v 4500k -maxrate 5000k -bufsize 9000k -pix_fmt yuv420p";
-                string arguments = $"-y -re -f rawvideo -pix_fmt bgr24 -s {width}x{height} -r {fps} -i - " +
-                                  $"-f s16le -ar 44100 -ac 1 -i {pipeFullPath} " +
-                                  $"{videoCodecArgs} -g {fps * 2} " +
-                                  $"-c:a aac -b:a 128k -ar 44100 " +
-                                  $"-f flv \"{fullRtmpTarget}\"";
+                // FFmpegプロセスの起動設定（YouTube高画質配信向け引数を生成）
+                string arguments = GenerateArguments(pipeFullPath, fullRtmpTarget, width, height, fps);
 
                 var startInfo = new ProcessStartInfo
                 {

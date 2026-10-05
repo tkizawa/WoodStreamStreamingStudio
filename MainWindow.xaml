@@ -63,6 +63,40 @@
                 </Setter.Value>
             </Setter>
         </Style>
+
+        <!-- 配信映像モード切替セグメントボタンスタイル -->
+        <Style x:Key="ModeSegmentRadioButtonStyle" TargetType="RadioButton">
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Margin" Value="2,0" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border x:Name="border"
+                                Background="{TemplateBinding Background}"
+                                CornerRadius="4"
+                                Padding="10,4"
+                                SnapsToDevicePixels="True">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#252736" />
+                                <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="{StaticResource AccentPurpleBrush}" />
+                                <Setter Property="Foreground" Value="#FFFFFF" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Window.Resources>
 
     <Grid>
@@ -184,16 +218,35 @@
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
 
-                    <!-- セクションタイトル & ステータス -->
+                    <!-- セクションタイトル & ステータス & 配信映像モード選択 -->
                     <DockPanel Grid.Row="0" Margin="0,0,0,10">
                         <Ellipse Width="10" Height="10" Fill="{StaticResource LiveRedBrush}" Margin="0,0,8,0" VerticalAlignment="Center" />
                         <TextBlock Text="{DynamicResource StreamSectionTitle}" FontSize="15" FontWeight="Bold" VerticalAlignment="Center" />
                         <Border Background="#381D26" BorderBrush="{StaticResource LiveRedBrush}" BorderThickness="1" CornerRadius="4" Margin="10,0,0,0" Padding="8,2" VerticalAlignment="Center">
                             <TextBlock Text="{DynamicResource StreamLiveBadge}" FontSize="10" FontWeight="Bold" Foreground="{StaticResource LiveRedBrush}" />
                         </Border>
-                        <!-- 右寄せステータス -->
-                        <Border Background="#12131A" CornerRadius="4" Padding="10,3" HorizontalAlignment="Right">
+
+                        <!-- 右端: 解像度 / FPS ステータス -->
+                        <Border DockPanel.Dock="Right" Background="#12131A" CornerRadius="4" Padding="10,3" VerticalAlignment="Center">
                             <TextBlock Text="{Binding StreamStatusText}" FontSize="12" Foreground="{StaticResource AccentBrush}" FontFamily="Consolas, Segoe UI" FontWeight="SemiBold" />
+                        </Border>
+
+                        <!-- 右側: 配信映像モード セグメント切り替えバー (マイク音声は常時有効) -->
+                        <Border DockPanel.Dock="Right" Background="#141520" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="6" Padding="3" Margin="0,0,12,0" VerticalAlignment="Center">
+                            <StackPanel Orientation="Horizontal" ToolTip="{DynamicResource BroadcastModeAudioNotice}">
+                                <RadioButton Content="{DynamicResource BroadcastModePip}"
+                                             IsChecked="{Binding IsModePip, Mode=TwoWay}"
+                                             GroupName="BroadcastModeSelector"
+                                             Style="{StaticResource ModeSegmentRadioButtonStyle}" />
+                                <RadioButton Content="{DynamicResource BroadcastModeScreenOnly}"
+                                             IsChecked="{Binding IsModeScreenOnly, Mode=TwoWay}"
+                                             GroupName="BroadcastModeSelector"
+                                             Style="{StaticResource ModeSegmentRadioButtonStyle}" />
+                                <RadioButton Content="{DynamicResource BroadcastModeCameraOnly}"
+                                             IsChecked="{Binding IsModeCameraOnly, Mode=TwoWay}"
+                                             GroupName="BroadcastModeSelector"
+                                             Style="{StaticResource ModeSegmentRadioButtonStyle}" />
+                            </StackPanel>
                         </Border>
                     </DockPanel>
 

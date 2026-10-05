@@ -80,4 +80,11 @@
     <sys:String x:Key="LanguageLabel">Language:</sys:String>
     <sys:String x:Key="SaveSettingsNotice">Settings are saved automatically</sys:String>
     <sys:String x:Key="ReadyStatus">Ready</sys:String>
+
+    <!-- Broadcast Video Mode -->
+    <sys:String x:Key="BroadcastModeLabel">Broadcast Mode:</sys:String>
+    <sys:String x:Key="BroadcastModePip">Composite (PiP)</sys:String>
+    <sys:String x:Key="BroadcastModeScreenOnly">Screen Only</sys:String>
+    <sys:String x:Key="BroadcastModeCameraOnly">Camera Only</sys:String>
+    <sys:String x:Key="BroadcastModeAudioNotice">※Mic/camera audio is always enabled in all modes</sys:String>
 </ResourceDictionary>

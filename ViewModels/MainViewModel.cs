@@ -49,6 +49,53 @@ public class MainViewModel : ViewModelBase, IDisposable
         get => _streamStatusText;
         set => SetProperty(ref _streamStatusText, value);
     }
+
+    private BroadcastMode _selectedBroadcastMode = BroadcastMode.PictureInPicture;
+    /// <summary>
+    /// 現在の配信映像モード (PiP合成、画面のみ、カメラのみ)
+    /// </summary>
+    public BroadcastMode SelectedBroadcastMode
+    {
+        get => _selectedBroadcastMode;
+        set
+        {
+            if (SetProperty(ref _selectedBroadcastMode, value))
+            {
+                _compositorService.CurrentMode = value;
+                OnPropertyChanged(nameof(IsModePip));
+                OnPropertyChanged(nameof(IsModeScreenOnly));
+                OnPropertyChanged(nameof(IsModeCameraOnly));
+                SaveSettings();
+            }
+        }
+    }
+
+    public bool IsModePip
+    {
+        get => SelectedBroadcastMode == BroadcastMode.PictureInPicture;
+        set
+        {
+            if (value) SelectedBroadcastMode = BroadcastMode.PictureInPicture;
+        }
+    }
+
+    public bool IsModeScreenOnly
+    {
+        get => SelectedBroadcastMode == BroadcastMode.ScreenOnly;
+        set
+        {
+            if (value) SelectedBroadcastMode = BroadcastMode.ScreenOnly;
+        }
+    }
+
+    public bool IsModeCameraOnly
+    {
+        get => SelectedBroadcastMode == BroadcastMode.CameraOnly;
+        set
+        {
+            if (value) SelectedBroadcastMode = BroadcastMode.CameraOnly;
+        }
+    }
     #endregion
 
     #region カメラ プロパティ
@@ -316,6 +363,7 @@ public class MainViewModel : ViewModelBase, IDisposable
     public RelayCommand SetLanguageCommand { get; }
     public RelayCommand ToggleChatCommand { get; }
     public RelayCommand ToggleStreamingCommand { get; }
+    public RelayCommand SetBroadcastModeCommand { get; }
     #endregion
 
     public MainViewModel()
@@ -339,6 +387,8 @@ public class MainViewModel : ViewModelBase, IDisposable
         YouTubeLiveUrl = _appSettings.YouTubeLiveUrl ?? string.Empty;
         RtmpUrl = !string.IsNullOrWhiteSpace(_appSettings.RtmpUrl) ? _appSettings.RtmpUrl : "rtmp://a.rtmp.youtube.com/live2";
         StreamKey = _appSettings.StreamKey ?? string.Empty;
+        SelectedBroadcastMode = (BroadcastMode)_appSettings.BroadcastMode;
+        _compositorService.CurrentMode = SelectedBroadcastMode;
 
         // イベント購読
         _cameraService.FrameArrived += OnCameraFrameArrived;
@@ -396,6 +446,17 @@ public class MainViewModel : ViewModelBase, IDisposable
         ToggleMuteCommand = new RelayCommand(() => IsAudioMuted = !IsAudioMuted);
         ToggleChatCommand = new RelayCommand(ToggleChat);
         ToggleStreamingCommand = new RelayCommand(ToggleStreaming);
+        SetBroadcastModeCommand = new RelayCommand(param =>
+        {
+            if (param is BroadcastMode mode)
+            {
+                SelectedBroadcastMode = mode;
+            }
+            else if (param is string str && Enum.TryParse<BroadcastMode>(str, true, out var parsed))
+            {
+                SelectedBroadcastMode = parsed;
+            }
+        });
         SetLanguageCommand = new RelayCommand(param =>
         {
             if (param is string lang)
@@ -692,9 +753,15 @@ public class MainViewModel : ViewModelBase, IDisposable
 
             SaveSettings();
 
+            // 配信開始時はカメラ・マイクの音声入力を常に有効にする
+            if (!IsAudioRunning)
+            {
+                StartAudioCapture();
+            }
+
             int width = _compositorService.OutputWidth > 0 ? _compositorService.OutputWidth : 1920;
             int height = _compositorService.OutputHeight > 0 ? _compositorService.OutputHeight : 1080;
-            int fps = _compositorService.CompositingFps > 10 ? _compositorService.CompositingFps : 30;
+            int fps = 60;
 
             await _streamService.StartStreamingAsync(RtmpUrl, StreamKey, width, height, fps);
             IsStreaming = _streamService.IsStreaming;
@@ -750,6 +817,7 @@ public class MainViewModel : ViewModelBase, IDisposable
         _appSettings.YouTubeLiveUrl = YouTubeLiveUrl;
         _appSettings.RtmpUrl = RtmpUrl;
         _appSettings.StreamKey = StreamKey;
+        _appSettings.BroadcastMode = (int)SelectedBroadcastMode;
 
         _settingsService.Save(_appSettings);
     }

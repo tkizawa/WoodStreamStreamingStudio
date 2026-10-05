@@ -51,4 +51,7 @@ public class AppSettings
 
     /// <summary>YouTube ストリームキー</summary>
     public string? StreamKey { get; set; }
+
+    /// <summary>配信映像モード (0: PiP合成, 1: 画面のみ, 2: カメラのみ)</summary>
+    public int BroadcastMode { get; set; } = 0;
 }

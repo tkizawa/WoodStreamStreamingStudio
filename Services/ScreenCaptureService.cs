@@ -97,7 +97,9 @@ public class ScreenCaptureService : IDisposable
     }
 
     /// <summary>
-    /// バックグラウンドでの画面キャプチャループ (BitBlt)
+    /// バックグラウンドでの画面キャプチャループ
+    /// PrintWindow (PW_RENDERFULLCONTENT) と デスクトップ BitBlt (CAPTUREBLT) のハイブリッド方式により、
+    /// UWPアプリ（Windows「設定」アプリ等）やGPUアクセラレーション有効ウィンドウも確実にキャプチャします。
     /// </summary>
     private void CaptureLoop(CaptureSourceInfo source, CancellationToken token)
     {
@@ -109,17 +111,17 @@ public class ScreenCaptureService : IDisposable
             try
             {
                 Rectangle targetRect;
-                nint srcHwnd;
+                nint srcHwnd = nint.Zero;
 
                 if (source.SourceType == CaptureSourceType.Window)
                 {
                     srcHwnd = source.Handle;
-                    if (!NativeMethods.IsWindowVisible(srcHwnd))
+                    if (!NativeMethods.IsWindow(srcHwnd) || !NativeMethods.IsWindowVisible(srcHwnd) || NativeMethods.IsIconic(srcHwnd))
                     {
                         Thread.Sleep(100);
                         continue;
                     }
-                    if (!NativeMethods.GetWindowRect(srcHwnd, out var r))
+                    if (!NativeMethods.GetVisibleWindowRect(srcHwnd, out var r))
                     {
                         Thread.Sleep(100);
                         continue;
@@ -129,8 +131,13 @@ public class ScreenCaptureService : IDisposable
                 else
                 {
                     // ディスプレイキャプチャ
-                    srcHwnd = NativeMethods.GetDesktopWindow();
                     targetRect = source.Bounds;
+                }
+
+                if (targetRect.Width <= 10 || targetRect.Height <= 10)
+                {
+                    Thread.Sleep(100);
+                    continue;
                 }
 
                 int width = Math.Max(1, targetRect.Width);
@@ -139,18 +146,38 @@ public class ScreenCaptureService : IDisposable
                 CaptureHeight = height;
 
                 // Win32 GDI による画面取り込み
-                nint hSrcDC = NativeMethods.GetDC(srcHwnd);
-                nint hDestDC = NativeMethods.CreateCompatibleDC(hSrcDC);
-                nint hBitmap = NativeMethods.CreateCompatibleBitmap(hSrcDC, width, height);
+                // デスクトップDCを基準に互換DCとビットマップを作成
+                nint hDesktopDC = NativeMethods.GetDC(nint.Zero);
+                nint hDestDC = NativeMethods.CreateCompatibleDC(hDesktopDC);
+                nint hBitmap = NativeMethods.CreateCompatibleBitmap(hDesktopDC, width, height);
                 nint hOldBitmap = NativeMethods.SelectObject(hDestDC, hBitmap);
 
-                int srcX = source.SourceType == CaptureSourceType.Window ? 0 : targetRect.Left;
-                int srcY = source.SourceType == CaptureSourceType.Window ? 0 : targetRect.Top;
+                bool capturedWithPrintWindow = false;
 
-                NativeMethods.BitBlt(
-                    hDestDC, 0, 0, width, height,
-                    hSrcDC, srcX, srcY,
-                    NativeMethods.SRCCOPY | NativeMethods.CAPTUREBLT);
+                if (source.SourceType == CaptureSourceType.Window)
+                {
+                    // 方法1: PrintWindow (PW_RENDERFULLCONTENT: 0x00000002)
+                    // 他のウィンドウに重なっていてもウィンドウ単体の描画を取得可能
+                    try
+                    {
+                        capturedWithPrintWindow = NativeMethods.PrintWindow(srcHwnd, hDestDC, NativeMethods.PW_RENDERFULLCONTENT);
+                    }
+                    catch
+                    {
+                        capturedWithPrintWindow = false;
+                    }
+                }
+
+                // 方法2 (またはディスプレイキャプチャ): デスクトップ画面座標から直接 BitBlt でキャプチャ
+                // UWPアプリ（Windows「設定」等）やPrintWindow非対応のGPUレンダリングウィンドウも
+                // 画面上に表示されているピクセルを100%確実にキャプチャ
+                if (!capturedWithPrintWindow)
+                {
+                    NativeMethods.BitBlt(
+                        hDestDC, 0, 0, width, height,
+                        hDesktopDC, targetRect.Left, targetRect.Top,
+                        NativeMethods.SRCCOPY | NativeMethods.CAPTUREBLT);
+                }
 
                 // DIBits 経由で OpenCvSharp の Mat (CV_8UC4) を直接生成
                 var bmi = new NativeMethods.BITMAPINFOHEADER
@@ -166,11 +193,22 @@ public class ScreenCaptureService : IDisposable
                 using var frameMat = new Mat(height, width, MatType.CV_8UC4);
                 NativeMethods.GetDIBits(hDestDC, hBitmap, 0, (uint)height, frameMat.Data, ref bmi, 0);
 
+                // もし PrintWindow で「成功」と返ってきたが中身が真っ黒だった場合は、
+                // デスクトップBitBltにフォールバックして再取得
+                if (capturedWithPrintWindow && IsBlackFrame(frameMat))
+                {
+                    NativeMethods.BitBlt(
+                        hDestDC, 0, 0, width, height,
+                        hDesktopDC, targetRect.Left, targetRect.Top,
+                        NativeMethods.SRCCOPY | NativeMethods.CAPTUREBLT);
+                    NativeMethods.GetDIBits(hDestDC, hBitmap, 0, (uint)height, frameMat.Data, ref bmi, 0);
+                }
+
                 // GDIリソースの安全な解放
                 NativeMethods.SelectObject(hDestDC, hOldBitmap);
                 NativeMethods.DeleteObject(hBitmap);
                 NativeMethods.DeleteDC(hDestDC);
-                NativeMethods.ReleaseDC(srcHwnd, hSrcDC);
+                NativeMethods.ReleaseDC(nint.Zero, hDesktopDC);
 
                 // 合成サービス用に最新フレームを保管
                 lock (_frameLock)
@@ -208,6 +246,31 @@ public class ScreenCaptureService : IDisposable
         }
 
         IsRunning = false;
+    }
+
+    /// <summary>
+    /// キャプチャしたフレームが真っ黒（全画素値が0近傍）かどうかをサンプリング判定します
+    /// </summary>
+    private static bool IsBlackFrame(Mat mat)
+    {
+        if (mat.Empty() || mat.Data == nint.Zero) return true;
+
+        int totalPixels = mat.Width * mat.Height;
+        int step = Math.Max(1, totalPixels / 100);
+
+        for (int i = 0; i < totalPixels; i += step)
+        {
+            int offset = i * 4;
+            byte b = Marshal.ReadByte(mat.Data, offset);
+            byte g = Marshal.ReadByte(mat.Data, offset + 1);
+            byte r = Marshal.ReadByte(mat.Data, offset + 2);
+            if (b > 5 || g > 5 || r > 5)
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /// <summary>
