@@ -55,6 +55,13 @@ public class SettingsService
                     return settings;
                 }
             }
+            else
+            {
+                // 初回起動時: デフォルト設定をファイルに書き出し
+                var defaultSettings = new AppSettings();
+                Save(defaultSettings);
+                return defaultSettings;
+            }
         }
         catch (Exception ex)
         {
