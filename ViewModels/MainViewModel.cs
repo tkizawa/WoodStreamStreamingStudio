@@ -20,8 +20,10 @@ public class MainViewModel : ViewModelBase, IDisposable
     private readonly AudioCaptureService _audioService;
     private readonly StreamCompositorService _compositorService;
     private readonly YouTubeChatService _chatService;
+    private readonly RtmpStreamService _streamService;
     private readonly SettingsService _settingsService;
     private readonly LocalizationService _locService;
+    private readonly System.Windows.Threading.DispatcherTimer _streamTimer;
 
     private AppSettings _appSettings;
     private nint _windowHandle = nint.Zero;
@@ -251,6 +253,43 @@ public class MainViewModel : ViewModelBase, IDisposable
     }
     #endregion
 
+    #region YouTube RTMP 配信 プロパティ
+    private string _rtmpUrl = "rtmp://a.rtmp.youtube.com/live2";
+    public string RtmpUrl
+    {
+        get => _rtmpUrl;
+        set => SetProperty(ref _rtmpUrl, value);
+    }
+
+    private string _streamKey = string.Empty;
+    public string StreamKey
+    {
+        get => _streamKey;
+        set => SetProperty(ref _streamKey, value);
+    }
+
+    private bool _isStreaming;
+    public bool IsStreaming
+    {
+        get => _isStreaming;
+        set => SetProperty(ref _isStreaming, value);
+    }
+
+    private string _streamingStatusText = "OFFLINE";
+    public string StreamingStatusText
+    {
+        get => _streamingStatusText;
+        set => SetProperty(ref _streamingStatusText, value);
+    }
+
+    private string _streamingDurationText = "00:00:00";
+    public string StreamingDurationText
+    {
+        get => _streamingDurationText;
+        set => SetProperty(ref _streamingDurationText, value);
+    }
+    #endregion
+
     #region 言語・ステータス
     private string _currentLanguage = "auto";
     public string CurrentLanguage
@@ -276,6 +315,7 @@ public class MainViewModel : ViewModelBase, IDisposable
     public RelayCommand ToggleMuteCommand { get; }
     public RelayCommand SetLanguageCommand { get; }
     public RelayCommand ToggleChatCommand { get; }
+    public RelayCommand ToggleStreamingCommand { get; }
     #endregion
 
     public MainViewModel()
@@ -287,6 +327,7 @@ public class MainViewModel : ViewModelBase, IDisposable
         _audioService = new AudioCaptureService();
         _compositorService = new StreamCompositorService(_cameraService, _screenService);
         _chatService = new YouTubeChatService();
+        _streamService = new RtmpStreamService();
 
         _appSettings = _settingsService.Load();
         CurrentLanguage = _appSettings.Language;
@@ -296,6 +337,8 @@ public class MainViewModel : ViewModelBase, IDisposable
         _audioService.IsMuted = IsAudioMuted;
         YouTubeApiKey = _appSettings.YouTubeApiKey ?? string.Empty;
         YouTubeLiveUrl = _appSettings.YouTubeLiveUrl ?? string.Empty;
+        RtmpUrl = !string.IsNullOrWhiteSpace(_appSettings.RtmpUrl) ? _appSettings.RtmpUrl : "rtmp://a.rtmp.youtube.com/live2";
+        StreamKey = _appSettings.StreamKey ?? string.Empty;
 
         // イベント購読
         _cameraService.FrameArrived += OnCameraFrameArrived;
@@ -308,13 +351,41 @@ public class MainViewModel : ViewModelBase, IDisposable
 
         _compositorService.CompositeFrameArrived += OnCompositeFrameArrived;
         _compositorService.StatusChanged += OnCompositeStatusChanged;
+        _compositorService.RawFrameAvailable += (bgr, w, h) =>
+        {
+            if (_streamService.IsStreaming)
+            {
+                _streamService.PushVideoFrame(bgr);
+            }
+        };
 
         _audioService.AudioLevelChanged += OnAudioLevelChanged;
+        _audioService.RawAudioAvailable += (buf, offset, count) =>
+        {
+            if (_streamService.IsStreaming)
+            {
+                _streamService.PushAudioData(buf, offset, count);
+            }
+        };
         _audioService.ErrorOccurred += OnServiceError;
 
         _chatService.MessagesReceived += OnChatMessagesReceived;
         _chatService.StatusChanged += OnChatStatusChanged;
         _chatService.ErrorOccurred += OnServiceError;
+
+        _streamService.StatusChanged += OnStreamingStatusChanged;
+        _streamService.ErrorOccurred += OnServiceError;
+
+        // 配信時間更新タイマー (1秒間隔)
+        _streamTimer = new System.Windows.Threading.DispatcherTimer
+        {
+            Interval = TimeSpan.FromSeconds(1)
+        };
+        _streamTimer.Tick += (s, e) =>
+        {
+            var d = _streamService.StreamingDuration;
+            StreamingDurationText = $"{(int)d.TotalHours:D2}:{d.Minutes:D2}:{d.Seconds:D2}";
+        };
 
         // コマンド初期化
         ToggleCameraCommand = new RelayCommand(ToggleCamera);
@@ -324,6 +395,7 @@ public class MainViewModel : ViewModelBase, IDisposable
         ToggleAudioCommand = new RelayCommand(ToggleAudio);
         ToggleMuteCommand = new RelayCommand(() => IsAudioMuted = !IsAudioMuted);
         ToggleChatCommand = new RelayCommand(ToggleChat);
+        ToggleStreamingCommand = new RelayCommand(ToggleStreaming);
         SetLanguageCommand = new RelayCommand(param =>
         {
             if (param is string lang)
@@ -599,6 +671,55 @@ public class MainViewModel : ViewModelBase, IDisposable
     }
     #endregion
 
+    #region YouTube RTMP 配信制御
+    private async void ToggleStreaming()
+    {
+        if (IsStreaming)
+        {
+            _streamTimer.Stop();
+            _streamService.StopStreaming();
+            IsStreaming = false;
+            StreamingStatusText = "OFFLINE";
+            StreamingDurationText = "00:00:00";
+        }
+        else
+        {
+            if (string.IsNullOrWhiteSpace(StreamKey))
+            {
+                StatusMessage = "YouTube ストリームキーを入力してください。";
+                return;
+            }
+
+            SaveSettings();
+
+            int width = _compositorService.OutputWidth > 0 ? _compositorService.OutputWidth : 1920;
+            int height = _compositorService.OutputHeight > 0 ? _compositorService.OutputHeight : 1080;
+            int fps = _compositorService.CompositingFps > 10 ? _compositorService.CompositingFps : 30;
+
+            await _streamService.StartStreamingAsync(RtmpUrl, StreamKey, width, height, fps);
+            IsStreaming = _streamService.IsStreaming;
+            if (IsStreaming)
+            {
+                _streamTimer.Start();
+            }
+        }
+    }
+
+    private void OnStreamingStatusChanged(string status)
+    {
+        Application.Current.Dispatcher.InvokeAsync(() =>
+        {
+            StreamingStatusText = status;
+            StatusMessage = $"[配信] {status}";
+            IsStreaming = _streamService.IsStreaming;
+            if (!IsStreaming)
+            {
+                _streamTimer.Stop();
+            }
+        });
+    }
+    #endregion
+
     private void OnServiceError(string message)
     {
         Application.Current.Dispatcher.InvokeAsync(() =>
@@ -627,6 +748,8 @@ public class MainViewModel : ViewModelBase, IDisposable
 
         _appSettings.YouTubeApiKey = YouTubeApiKey;
         _appSettings.YouTubeLiveUrl = YouTubeLiveUrl;
+        _appSettings.RtmpUrl = RtmpUrl;
+        _appSettings.StreamKey = StreamKey;
 
         _settingsService.Save(_appSettings);
     }
@@ -651,6 +774,8 @@ public class MainViewModel : ViewModelBase, IDisposable
 
     public void Dispose()
     {
+        _streamTimer.Stop();
+        _streamService.Dispose();
         _chatService.Dispose();
         _compositorService.Dispose();
         _cameraService.Dispose();

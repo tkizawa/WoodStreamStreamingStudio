@@ -64,6 +64,18 @@
     <sys:String x:Key="YouTubeNoComments">Waiting for live chat messages...</sys:String>
     <sys:String x:Key="YouTubeChatBadge">LIVE CHAT</sys:String>
 
+    <!-- YouTube RTMP Live Streaming Section -->
+    <sys:String x:Key="RtmpStreamSectionTitle">YouTube Live Streaming (RTMP)</sys:String>
+    <sys:String x:Key="RtmpUrlLabel">Stream URL:</sys:String>
+    <sys:String x:Key="StreamKeyLabel">Stream Key:</sys:String>
+    <sys:String x:Key="StreamKeyPlaceholder">Stream key from YouTube Studio</sys:String>
+    <sys:String x:Key="StartStreaming">Start Streaming</sys:String>
+    <sys:String x:Key="StopStreaming">Stop Streaming</sys:String>
+    <sys:String x:Key="StreamingStatusLive">LIVE (Streaming)</sys:String>
+    <sys:String x:Key="StreamingStatusOffline">OFFLINE (Stopped)</sys:String>
+    <sys:String x:Key="StreamingDurationLabel">Duration:</sys:String>
+    <sys:String x:Key="StreamingBadge">ON AIR</sys:String>
+
     <!-- Settings & Language -->
     <sys:String x:Key="LanguageLabel">Language:</sys:String>
     <sys:String x:Key="SaveSettingsNotice">Settings are saved automatically</sys:String>

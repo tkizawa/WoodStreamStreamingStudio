@@ -35,6 +35,9 @@ public class StreamCompositorService : IDisposable
     /// <summary>合成後の最終フレーム到着イベント</summary>
     public event Action<BitmapSource>? CompositeFrameArrived;
 
+    /// <summary>FFmpeg配信用の生映像フレーム (bgr24) 到着イベント (byte[] bgrData, int width, int height)</summary>
+    public event Action<byte[], int, int>? RawFrameAvailable;
+
     /// <summary>合成ステータス更新イベント (fps, width, height)</summary>
     public event Action<int, int, int>? StatusChanged;
 
@@ -136,6 +139,25 @@ public class StreamCompositorService : IDisposable
                 bitmap.Freeze(); // UIスレッドへの安全な受け渡し
 
                 CompositeFrameArrived?.Invoke(bitmap);
+
+                // 4-2. 配信サービスリスナーが存在する場合、raw BGR24 フレームデータを送出
+                if (RawFrameAvailable != null && !compositeMat.Empty())
+                {
+                    using var bgrMat = new Mat();
+                    if (compositeMat.Type() == MatType.CV_8UC4)
+                    {
+                        Cv2.CvtColor(compositeMat, bgrMat, ColorConversionCodes.BGRA2BGR);
+                    }
+                    else
+                    {
+                        compositeMat.CopyTo(bgrMat);
+                    }
+
+                    int dataSize = bgrMat.Width * bgrMat.Height * 3;
+                    var rawBytes = new byte[dataSize];
+                    System.Runtime.InteropServices.Marshal.Copy(bgrMat.Data, rawBytes, 0, dataSize);
+                    RawFrameAvailable.Invoke(rawBytes, bgrMat.Width, bgrMat.Height);
+                }
 
                 // 5. FPS計算
                 frameCount++;

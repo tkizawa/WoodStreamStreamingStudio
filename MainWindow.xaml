@@ -99,8 +99,60 @@
                     </StackPanel>
                 </StackPanel>
 
-                <!-- 言語切替セレクター -->
+                <!-- ヘッダー右側: 配信開始/停止ボタン、ステータス、タイマー、言語セレクター -->
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <!-- 配信ステータスバッジ & タイマー -->
+                    <Border Background="#12131A" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="6" Padding="10,4" Margin="0,0,12,0" VerticalAlignment="Center">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <Ellipse Width="8" Height="8" Margin="0,0,6,0" VerticalAlignment="Center">
+                                <Ellipse.Style>
+                                    <Style TargetType="Ellipse">
+                                        <Setter Property="Fill" Value="#555869" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsStreaming}" Value="True">
+                                                <Setter Property="Fill" Value="{StaticResource LiveRedBrush}" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Ellipse.Style>
+                            </Ellipse>
+                            <TextBlock Text="{Binding StreamingStatusText}" FontWeight="Bold" FontSize="11" Margin="0,0,8,0" VerticalAlignment="Center">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsStreaming}" Value="True">
+                                                <Setter Property="Foreground" Value="{StaticResource LiveRedBrush}" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                            <TextBlock Text="{Binding StreamingDurationText}" FontFamily="Consolas, Segoe UI" FontSize="11" Foreground="{StaticResource AccentBrush}" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Border>
+
+                    <!-- 配信開始 / 停止ボタン (メインアクション) -->
+                    <Button Command="{Binding ToggleStreamingCommand}" MinWidth="110" Margin="0,0,16,0" Padding="14,6">
+                        <Button.Style>
+                            <Style TargetType="Button" BasedOn="{StaticResource StudioButtonStyle}">
+                                <Setter Property="Content" Value="{DynamicResource StartStreaming}" />
+                                <Setter Property="Background" Value="#1A3828" />
+                                <Setter Property="BorderBrush" Value="#00E676" />
+                                <Setter Property="Foreground" Value="#00E676" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsStreaming}" Value="True">
+                                        <Setter Property="Content" Value="{DynamicResource StopStreaming}" />
+                                        <Setter Property="Background" Value="#381D26" />
+                                        <Setter Property="BorderBrush" Value="{StaticResource LiveRedBrush}" />
+                                        <Setter Property="Foreground" Value="{StaticResource LiveRedBrush}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                    </Button>
+
+                    <!-- 言語切替セレクター -->
                     <TextBlock Text="{DynamicResource LanguageLabel}" VerticalAlignment="Center" Margin="0,0,8,0" Foreground="{StaticResource TextSecondaryBrush}" FontSize="12" />
                     <ComboBox Width="110" SelectedValuePath="Tag" SelectedValue="{Binding CurrentLanguage, Mode=TwoWay}" SelectionChanged="OnLanguageSelectionChanged">
                         <ComboBoxItem Content="日本語" Tag="ja" />
@@ -145,40 +197,61 @@
                         </Border>
                     </DockPanel>
 
-                    <!-- YouTube チャット設定バー（APIキー, 配信URL, 接続ボタン） -->
-                    <Border Grid.Row="1" Background="#14151E" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="6" Padding="10,8" Margin="0,0,0,10">
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="130" />
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
+                    <!-- 配信・チャット設定パネル (2段) -->
+                    <StackPanel Grid.Row="1" Margin="0,0,0,10">
+                        <!-- 1段目: YouTube RTMP 配信設定バー -->
+                        <Border Background="#14151E" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="6" Padding="10,7" Margin="0,0,0,6">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="1.2*" />
+                                </Grid.ColumnDefinitions>
 
-                            <TextBlock Grid.Column="0" Text="{DynamicResource YouTubeApiKeyLabel}" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,6,0" />
-                            <TextBox Grid.Column="1" Text="{Binding YouTubeApiKey, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,10,0" />
+                                <TextBlock Grid.Column="0" Text="{DynamicResource RtmpUrlLabel}" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,6,0" />
+                                <TextBox Grid.Column="1" Text="{Binding RtmpUrl, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,12,0" />
 
-                            <TextBlock Grid.Column="2" Text="{DynamicResource YouTubeLiveUrlLabel}" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,6,0" />
-                            <TextBox Grid.Column="3" Text="{Binding YouTubeLiveUrl, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,10,0" />
+                                <TextBlock Grid.Column="2" Text="{DynamicResource StreamKeyLabel}" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,6,0" />
+                                <TextBox Grid.Column="3" Text="{Binding StreamKey, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                            </Grid>
+                        </Border>
 
-                            <Button Grid.Column="4" Command="{Binding ToggleChatCommand}" MinWidth="90">
-                                <Button.Style>
-                                    <Style TargetType="Button" BasedOn="{StaticResource StudioButtonStyle}">
-                                        <Setter Property="Content" Value="{DynamicResource YouTubeStartChat}" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsChatPolling}" Value="True">
-                                                <Setter Property="Content" Value="{DynamicResource YouTubeStopChat}" />
-                                                <Setter Property="Background" Value="#381D26" />
-                                                <Setter Property="Foreground" Value="{StaticResource LiveRedBrush}" />
-                                                <Setter Property="BorderBrush" Value="{StaticResource LiveRedBrush}" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Button.Style>
-                            </Button>
-                        </Grid>
-                    </Border>
+                        <!-- 2段目: YouTube チャット設定バー -->
+                        <Border Background="#14151E" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="6" Padding="10,7">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="130" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <TextBlock Grid.Column="0" Text="{DynamicResource YouTubeApiKeyLabel}" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,6,0" />
+                                <TextBox Grid.Column="1" Text="{Binding YouTubeApiKey, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,10,0" />
+
+                                <TextBlock Grid.Column="2" Text="{DynamicResource YouTubeLiveUrlLabel}" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,6,0" />
+                                <TextBox Grid.Column="3" Text="{Binding YouTubeLiveUrl, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,10,0" />
+
+                                <Button Grid.Column="4" Command="{Binding ToggleChatCommand}" MinWidth="90">
+                                    <Button.Style>
+                                        <Style TargetType="Button" BasedOn="{StaticResource StudioButtonStyle}">
+                                            <Setter Property="Content" Value="{DynamicResource YouTubeStartChat}" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsChatPolling}" Value="True">
+                                                    <Setter Property="Content" Value="{DynamicResource YouTubeStopChat}" />
+                                                    <Setter Property="Background" Value="#381D26" />
+                                                    <Setter Property="Foreground" Value="{StaticResource LiveRedBrush}" />
+                                                    <Setter Property="BorderBrush" Value="{StaticResource LiveRedBrush}" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                </Button>
+                            </Grid>
+                        </Border>
+                    </StackPanel>
 
                     <!-- 配信用合成映像プレビューモニター + 半透明チャットオーバーレイ -->
                     <Border Grid.Row="2" Background="#0A0B0E" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="6" ClipToBounds="True">

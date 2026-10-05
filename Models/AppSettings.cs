@@ -45,4 +45,10 @@ public class AppSettings
 
     /// <summary>YouTube ライブ配信URLまたはVideo ID</summary>
     public string? YouTubeLiveUrl { get; set; }
+
+    /// <summary>YouTube RTMP ストリームURL</summary>
+    public string RtmpUrl { get; set; } = "rtmp://a.rtmp.youtube.com/live2";
+
+    /// <summary>YouTube ストリームキー</summary>
+    public string? StreamKey { get; set; }
 }

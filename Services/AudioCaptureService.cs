@@ -20,6 +20,9 @@ public class AudioCaptureService : IDisposable
     /// <summary>音量レベル更新イベント (level: 0.0~1.0, dB: -60~0)</summary>
     public event Action<float, float>? AudioLevelChanged;
 
+    /// <summary>FFmpeg配信用のPCM 16bit 生音声データ到着イベント (buffer, offset, count)</summary>
+    public event Action<byte[], int, int>? RawAudioAvailable;
+
     /// <summary>エラー発生時イベント</summary>
     public event Action<string>? ErrorOccurred;
 
@@ -91,6 +94,9 @@ public class AudioCaptureService : IDisposable
         if (IsMuted)
         {
             AudioLevelChanged?.Invoke(0f, -60f);
+            // ミュート中もAV同期を維持するため無音PCMデータを送出
+            var silenceBuffer = new byte[e.BytesRecorded];
+            RawAudioAvailable?.Invoke(silenceBuffer, 0, e.BytesRecorded);
             return;
         }
 
@@ -117,6 +123,7 @@ public class AudioCaptureService : IDisposable
         }
 
         AudioLevelChanged?.Invoke(maxSample, db);
+        RawAudioAvailable?.Invoke(e.Buffer, 0, e.BytesRecorded);
     }
 
     private void OnRecordingStopped(object? sender, StoppedEventArgs e)

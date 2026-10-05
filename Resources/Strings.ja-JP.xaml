@@ -64,6 +64,18 @@
     <sys:String x:Key="YouTubeNoComments">チャットコメントを受信するとここに表示されます</sys:String>
     <sys:String x:Key="YouTubeChatBadge">LIVE CHAT</sys:String>
 
+    <!-- YouTube RTMP ライブ配信セクション -->
+    <sys:String x:Key="RtmpStreamSectionTitle">YouTube ライブ配信 (RTMP)</sys:String>
+    <sys:String x:Key="RtmpUrlLabel">ストリーム URL:</sys:String>
+    <sys:String x:Key="StreamKeyLabel">ストリームキー:</sys:String>
+    <sys:String x:Key="StreamKeyPlaceholder">YouTube Studioのストリームキー</sys:String>
+    <sys:String x:Key="StartStreaming">配信開始</sys:String>
+    <sys:String x:Key="StopStreaming">配信停止</sys:String>
+    <sys:String x:Key="StreamingStatusLive">LIVE (配信中)</sys:String>
+    <sys:String x:Key="StreamingStatusOffline">OFFLINE (停止中)</sys:String>
+    <sys:String x:Key="StreamingDurationLabel">配信時間:</sys:String>
+    <sys:String x:Key="StreamingBadge">ON AIR</sys:String>
+
     <!-- 設定・言語 -->
     <sys:String x:Key="LanguageLabel">言語 (Language):</sys:String>
     <sys:String x:Key="SaveSettingsNotice">設定は自動保存されます</sys:String>
