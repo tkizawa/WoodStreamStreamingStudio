@@ -210,14 +210,18 @@ public class ScreenCaptureService : IDisposable
                 NativeMethods.DeleteDC(hDestDC);
                 NativeMethods.ReleaseDC(nint.Zero, hDesktopDC);
 
+                // BGR24 (CV_8UC3) に統一変換してメモリ効率およびプレビュー・合成色空間の整合性を確保
+                using var bgrMat = new Mat();
+                Cv2.CvtColor(frameMat, bgrMat, ColorConversionCodes.BGRA2BGR);
+
                 // 合成サービス用に最新フレームを保管
                 lock (_frameLock)
                 {
-                    frameMat.CopyTo(_latestFrame);
+                    bgrMat.CopyTo(_latestFrame);
                 }
 
-                // プレビュー表示用 BitmapSource を生成
-                var bmpSource = frameMat.ToWriteableBitmap();
+                // プレビュー表示用 BitmapSource (Bgr24) を生成
+                var bmpSource = bgrMat.ToWriteableBitmap();
                 bmpSource.Freeze();
 
                 FrameArrived?.Invoke(bmpSource);

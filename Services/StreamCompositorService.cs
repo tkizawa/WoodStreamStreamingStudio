@@ -102,7 +102,7 @@ public class StreamCompositorService : IDisposable
                         // 画面キャプチャのみを配信
                         if (hasScreen && !backgroundMat.Empty())
                         {
-                            backgroundMat.CopyTo(compositeMat);
+                            EnsureBgr3(backgroundMat, compositeMat);
                         }
                         else
                         {
@@ -127,7 +127,7 @@ public class StreamCompositorService : IDisposable
                         // 画面キャプチャ + WebカメラのPiP合成
                         if (hasScreen && !backgroundMat.Empty())
                         {
-                            backgroundMat.CopyTo(compositeMat);
+                            EnsureBgr3(backgroundMat, compositeMat);
                             if (hasCamera && !cameraMat.Empty())
                             {
                                 ComposePip(compositeMat, cameraMat);
@@ -201,6 +201,21 @@ public class StreamCompositorService : IDisposable
     }
 
     /// <summary>
+    /// ソースMatが4チャンネル (BGRA) の場合は3チャンネル (BGR24) に変換して転送します
+    /// </summary>
+    private static void EnsureBgr3(Mat src, Mat dst)
+    {
+        if (src.Type() == MatType.CV_8UC4)
+        {
+            Cv2.CvtColor(src, dst, ColorConversionCodes.BGRA2BGR);
+        }
+        else
+        {
+            src.CopyTo(dst);
+        }
+    }
+
+    /// <summary>
     /// 背景フレームの右下にカメラ映像を縮小してピクチャーインピクチャー描画します。
     /// すべての中間 Mat オブジェクトは using で確実に破棄します。
     /// </summary>
@@ -223,28 +238,41 @@ public class StreamCompositorService : IDisposable
         using var resizedCam = new Mat();
         Cv2.Resize(camera, resizedCam, new OpenCvSharp.Size(pipWidth, pipHeight), 0, 0, InterpolationFlags.Linear);
 
-        // チャンネル数の整合（BGRA vs BGR）
-        using var convertedCam = new Mat();
-        if (background.Type() == MatType.CV_8UC4 && resizedCam.Type() == MatType.CV_8UC3)
+        using var camToDraw = new Mat();
+        if (background.Type() == MatType.CV_8UC3)
         {
-            Cv2.CvtColor(resizedCam, convertedCam, ColorConversionCodes.BGR2BGRA);
+            if (resizedCam.Type() == MatType.CV_8UC4)
+            {
+                Cv2.CvtColor(resizedCam, camToDraw, ColorConversionCodes.BGRA2RGB);
+            }
+            else
+            {
+                Cv2.CvtColor(resizedCam, camToDraw, ColorConversionCodes.BGR2RGB);
+            }
         }
-        else if (background.Type() == MatType.CV_8UC3 && resizedCam.Type() == MatType.CV_8UC4)
+        else if (background.Type() == MatType.CV_8UC4)
         {
-            Cv2.CvtColor(resizedCam, convertedCam, ColorConversionCodes.BGRA2BGR);
+            if (resizedCam.Type() == MatType.CV_8UC4)
+            {
+                Cv2.CvtColor(resizedCam, camToDraw, ColorConversionCodes.BGRA2RGBA);
+            }
+            else
+            {
+                Cv2.CvtColor(resizedCam, camToDraw, ColorConversionCodes.BGR2RGBA);
+            }
         }
         else
         {
-            resizedCam.CopyTo(convertedCam);
+            resizedCam.CopyTo(camToDraw);
         }
 
         // 背景の右下領域 (ROI) にカメラ映像をコピー
         using var roi = new Mat(background, new Rect(x, y, pipWidth, pipHeight));
-        convertedCam.CopyTo(roi);
+        camToDraw.CopyTo(roi);
 
         // スタイリッシュな境界線（アクセントシアン #00D2FF / BGR: 255, 210, 0）を描画
         Cv2.Rectangle(background, new Rect(x - 2, y - 2, pipWidth + 4, pipHeight + 4),
-            new Scalar(255, 210, 0, 255), 2, LineTypes.AntiAlias);
+            new Scalar(255, 210, 0), 2, LineTypes.AntiAlias);
     }
 
     /// <summary>
@@ -252,8 +280,8 @@ public class StreamCompositorService : IDisposable
     /// </summary>
     private static void DrawCameraFull(Mat compositeMat, Mat cameraMat)
     {
-        compositeMat.Create(1080, 1920, MatType.CV_8UC4);
-        compositeMat.SetTo(new Scalar(26, 19, 18, 255)); // #12131A ダークスタジオ背景
+        compositeMat.Create(1080, 1920, MatType.CV_8UC3);
+        compositeMat.SetTo(new Scalar(26, 19, 18)); // #12131A ダークスタジオ背景 (BGR: 26, 19, 18)
 
         if (cameraMat.Empty() || cameraMat.Width <= 0 || cameraMat.Height <= 0) return;
 
@@ -266,18 +294,18 @@ public class StreamCompositorService : IDisposable
         using var resizedCam = new Mat();
         Cv2.Resize(cameraMat, resizedCam, new OpenCvSharp.Size(drawW, drawH), 0, 0, InterpolationFlags.Linear);
 
-        using var convertedCam = new Mat();
-        if (resizedCam.Type() == MatType.CV_8UC3)
+        using var camToDraw = new Mat();
+        if (resizedCam.Type() == MatType.CV_8UC4)
         {
-            Cv2.CvtColor(resizedCam, convertedCam, ColorConversionCodes.BGR2BGRA);
+            Cv2.CvtColor(resizedCam, camToDraw, ColorConversionCodes.BGRA2RGB);
         }
         else
         {
-            resizedCam.CopyTo(convertedCam);
+            Cv2.CvtColor(resizedCam, camToDraw, ColorConversionCodes.BGR2RGB);
         }
 
         using var roi = new Mat(compositeMat, new Rect(drawX, drawY, drawW, drawH));
-        convertedCam.CopyTo(roi);
+        camToDraw.CopyTo(roi);
     }
 
     /// <summary>
@@ -285,24 +313,24 @@ public class StreamCompositorService : IDisposable
     /// </summary>
     private static void DrawWaitingScreen(Mat compositeMat, string title, string subtitle)
     {
-        compositeMat.Create(1080, 1920, MatType.CV_8UC4);
-        compositeMat.SetTo(new Scalar(26, 19, 18, 255)); // #12131A
+        compositeMat.Create(1080, 1920, MatType.CV_8UC3);
+        compositeMat.SetTo(new Scalar(26, 19, 18)); // #12131A ダークスタジオ背景
 
         // グリッド線描画
         for (int x = 0; x < 1920; x += 120)
         {
-            Cv2.Line(compositeMat, new OpenCvSharp.Point(x, 0), new OpenCvSharp.Point(x, 1080), new Scalar(48, 42, 35, 255), 1);
+            Cv2.Line(compositeMat, new OpenCvSharp.Point(x, 0), new OpenCvSharp.Point(x, 1080), new Scalar(48, 42, 35), 1);
         }
         for (int y = 0; y < 1080; y += 120)
         {
-            Cv2.Line(compositeMat, new OpenCvSharp.Point(0, y), new OpenCvSharp.Point(1920, y), new Scalar(48, 42, 35, 255), 1);
+            Cv2.Line(compositeMat, new OpenCvSharp.Point(0, y), new OpenCvSharp.Point(1920, y), new Scalar(48, 42, 35), 1);
         }
 
         // 待機テキスト
         Cv2.PutText(compositeMat, title, new OpenCvSharp.Point(520, 520),
-            HersheyFonts.HersheyComplex, 1.4, new Scalar(255, 210, 0, 255), 2, LineTypes.AntiAlias);
+            HersheyFonts.HersheyComplex, 1.4, new Scalar(255, 210, 0), 2, LineTypes.AntiAlias);
         Cv2.PutText(compositeMat, subtitle, new OpenCvSharp.Point(680, 580),
-            HersheyFonts.HersheySimplex, 1.0, new Scalar(160, 160, 160, 255), 2, LineTypes.AntiAlias);
+            HersheyFonts.HersheySimplex, 1.0, new Scalar(160, 160, 160), 2, LineTypes.AntiAlias);
     }
 
     /// <summary>
