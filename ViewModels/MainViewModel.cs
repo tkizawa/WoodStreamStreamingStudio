@@ -761,6 +761,9 @@ public class MainViewModel : ViewModelBase, IDisposable
 
             int width = _compositorService.OutputWidth > 0 ? _compositorService.OutputWidth : 1920;
             int height = _compositorService.OutputHeight > 0 ? _compositorService.OutputHeight : 1080;
+            // FFmpegのエンコーダが奇数解像度でエラーを起こさないよう偶数に丸める
+            width = (width / 2) * 2;
+            height = (height / 2) * 2;
             int fps = 60;
 
             await _streamService.StartStreamingAsync(RtmpUrl, StreamKey, width, height, fps);

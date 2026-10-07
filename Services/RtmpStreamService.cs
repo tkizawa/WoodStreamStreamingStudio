@@ -55,16 +55,28 @@ public class RtmpStreamService : IDisposable
         var pathInProject = Path.Combine(projectRoot, "ffmpeg.exe");
         if (File.Exists(pathInProject)) return pathInProject;
 
-        // 4. PATH 環境変数
-        var pathEnv = Environment.GetEnvironmentVariable("PATH");
-        if (!string.IsNullOrEmpty(pathEnv))
+        // 4. WinGet Links ディレクトリ
+        var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        var wingetLink = Path.Combine(localAppData, "Microsoft", "WinGet", "Links", "ffmpeg.exe");
+        if (File.Exists(wingetLink)) return wingetLink;
+
+        // 5. PATH 環境変数（プロセス・ユーザー・システム環境変数を探索）
+        var pathStrings = new[]
         {
-            var paths = pathEnv.Split(Path.PathSeparator);
+            Environment.GetEnvironmentVariable("PATH"),
+            Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.User),
+            Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.Machine)
+        };
+
+        foreach (var pathEnv in pathStrings)
+        {
+            if (string.IsNullOrEmpty(pathEnv)) continue;
+            var paths = pathEnv.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries);
             foreach (var dir in paths)
             {
                 try
                 {
-                    var fullPath = Path.Combine(dir, "ffmpeg.exe");
+                    var fullPath = Path.Combine(dir.Trim(), "ffmpeg.exe");
                     if (File.Exists(fullPath)) return fullPath;
                 }
                 catch
@@ -191,11 +203,20 @@ public class RtmpStreamService : IDisposable
 
                 _ffmpegProcess = new Process { StartInfo = startInfo, EnableRaisingEvents = true };
 
+                string lastErrorOutput = "";
                 _ffmpegProcess.ErrorDataReceived += (s, e) =>
                 {
                     if (!string.IsNullOrEmpty(e.Data))
                     {
                         Debug.WriteLine($"[FFmpeg] {e.Data}");
+                        // エラーや失敗に関するログを保持
+                        if (e.Data.Contains("error", StringComparison.OrdinalIgnoreCase) ||
+                            e.Data.Contains("failed", StringComparison.OrdinalIgnoreCase) ||
+                            e.Data.Contains("connection refused", StringComparison.OrdinalIgnoreCase) ||
+                            e.Data.Contains("cannot", StringComparison.OrdinalIgnoreCase))
+                        {
+                            lastErrorOutput = e.Data;
+                        }
                     }
                 };
 
@@ -203,7 +224,11 @@ public class RtmpStreamService : IDisposable
                 {
                     if (IsStreaming)
                     {
-                        StatusChanged?.Invoke("配信プロセスが終了しました。");
+                        string exitMsg = string.IsNullOrWhiteSpace(lastErrorOutput)
+                            ? $"配信プロセスが終了しました (Code: {_ffmpegProcess?.ExitCode})"
+                            : $"配信プロセスが終了しました: {lastErrorOutput}";
+                        StatusChanged?.Invoke(exitMsg);
+                        ErrorOccurred?.Invoke(exitMsg);
                         StopStreaming();
                     }
                 };
@@ -295,7 +320,8 @@ public class RtmpStreamService : IDisposable
     }
 
     /// <summary>
-    /// 音声データを FFmpeg の Named Pipe に書き込むループ
+    /// 音声データを FFmpeg の Named Pipe に書き込むループ。
+    /// マイクが未接続または無音時でも FFmpeg がブロックされないよう、経過時間に応じた無音PCMを自動補填します。
     /// </summary>
     private async Task WriteAudioLoop(CancellationToken token)
     {
@@ -310,18 +336,56 @@ public class RtmpStreamService : IDisposable
             if (_audioPipeServer == null || !_audioPipeServer.IsConnected) return;
 
             var reader = _audioChannel!.Reader;
-            while (await reader.WaitToReadAsync(token))
+            var lastAudioTime = Stopwatch.StartNew();
+            const int sampleRate = 44100;
+            const int bytesPerSample = 2; // 16-bit mono
+
+            while (!token.IsCancellationRequested && _audioPipeServer.IsConnected)
             {
+                bool wroteData = false;
                 while (reader.TryRead(out var audioData))
                 {
                     if (_audioPipeServer.IsConnected)
                     {
                         await _audioPipeServer.WriteAsync(audioData, 0, audioData.Length, token);
+                        wroteData = true;
+                        lastAudioTime.Restart();
                     }
                 }
-                if (_audioPipeServer.IsConnected)
+
+                if (wroteData)
                 {
                     await _audioPipeServer.FlushAsync(token);
+                }
+                else
+                {
+                    // 音声データが届かない場合（マイクなし、または入力途切れ）
+                    // 40ms以上経過していたら無音PCM（ゼロ埋めデータ）を補填
+                    long elapsedMs = lastAudioTime.ElapsedMilliseconds;
+                    if (elapsedMs >= 40)
+                    {
+                        int silenceBytes = (int)(sampleRate * bytesPerSample * elapsedMs / 1000);
+                        silenceBytes -= (silenceBytes % bytesPerSample);
+                        if (silenceBytes > 0)
+                        {
+                            var silenceBuffer = new byte[silenceBytes];
+                            await _audioPipeServer.WriteAsync(silenceBuffer, 0, silenceBuffer.Length, token);
+                            await _audioPipeServer.FlushAsync(token);
+                            lastAudioTime.Restart();
+                        }
+                    }
+                }
+
+                // キューにデータが来るのを待つ（無音生成インターバルのため最大20msでキャンセル）
+                using var cts = CancellationTokenSource.CreateLinkedTokenSource(token);
+                cts.CancelAfter(20);
+                try
+                {
+                    await reader.WaitToReadAsync(cts.Token);
+                }
+                catch (OperationCanceledException)
+                {
+                    // 20msタイムアウトまたは外部キャンセル
                 }
             }
         }

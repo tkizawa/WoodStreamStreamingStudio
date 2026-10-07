@@ -26,3 +26,6 @@ bld/
 /MSIX/
 Installer/
 MSIX/
+
+# Binary tools
+ffmpeg.exe
