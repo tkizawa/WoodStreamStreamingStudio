@@ -42,6 +42,9 @@ public class CaptureSourceInfo
     /// <summary>対象の境界矩形 (画面座標)</summary>
     public System.Drawing.Rectangle Bounds { get; set; }
 
+    /// <summary>ディスプレイのデバイス識別子 (例: \\.\DISPLAY1)</summary>
+    public string DeviceName { get; set; } = string.Empty;
+
     public override string ToString() => Title;
 }
 

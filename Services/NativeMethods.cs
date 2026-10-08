@@ -38,6 +38,12 @@ public static class NativeMethods
     [DllImport("user32.dll")]
     public static extern int ReleaseDC(nint hWnd, nint hDC);
 
+    [DllImport("gdi32.dll", CharSet = CharSet.Auto)]
+    public static extern nint CreateDC(string? lpszDriver, string? lpszDevice, string? lpszOutput, nint lpInitData);
+
+    [DllImport("gdi32.dll")]
+    public static extern bool GdiFlush();
+
     [DllImport("gdi32.dll")]
     public static extern nint CreateCompatibleDC(nint hDC);
 
@@ -141,8 +147,42 @@ public static class NativeMethods
     [DllImport("user32.dll", CharSet = CharSet.Auto)]
     public static extern bool GetMonitorInfo(nint hMonitor, ref MONITORINFOEX lpmi);
 
+    public const int ENUM_CURRENT_SETTINGS = -1;
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi)]
+    public struct DEVMODE
+    {
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)]
+        public string dmDeviceName;
+        public short dmSpecVersion;
+        public short dmDriverVersion;
+        public short dmSize;
+        public short dmDriverExtra;
+        public int dmFields;
+        public int dmPositionX;
+        public int dmPositionY;
+        public int dmDisplayOrientation;
+        public int dmDisplayFixedOutput;
+        public short dmColor;
+        public short dmDuplex;
+        public short dmYResolution;
+        public short dmTTOption;
+        public short dmCollate;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)]
+        public string dmFormName;
+        public short dmLogPixels;
+        public int dmBitsPerPel;
+        public int dmPelsWidth;
+        public int dmPelsHeight;
+        public int dmDisplayFlags;
+        public int dmDisplayFrequency;
+    }
+
+    [DllImport("user32.dll", CharSet = CharSet.Ansi)]
+    public static extern bool EnumDisplaySettings(string? lpszDeviceName, int iModeNum, ref DEVMODE lpDevMode);
+
     /// <summary>
-    /// 全てのモニタ（ディスプレイ）を取得します
+    /// 全てのモニタ（ディスプレイ）を取得します（DPI仮想化の影響を受けない物理ピクセル解像度・座標を取得）
     /// </summary>
     public static List<CaptureSourceInfo> GetDisplaySources()
     {
@@ -156,15 +196,30 @@ public static class NativeMethods
             if (GetMonitorInfo(hMonitor, ref mi))
             {
                 var isPrimary = (mi.dwFlags & 1) != 0;
-                var rect = mi.rcMonitor.ToRectangle();
-                var title = $"Display {displayIndex} ({rect.Width}x{rect.Height}){(isPrimary ? " [Primary]" : "")}";
+
+                // DPI仮想化の影響を回避するため、EnumDisplaySettingsから物理ピクセル解像度および座標を取得
+                var dm = new DEVMODE();
+                dm.dmSize = (short)Marshal.SizeOf<DEVMODE>();
+                Rectangle bounds;
+
+                if (EnumDisplaySettings(mi.szDevice, ENUM_CURRENT_SETTINGS, ref dm) && dm.dmPelsWidth > 0 && dm.dmPelsHeight > 0)
+                {
+                    bounds = new Rectangle(dm.dmPositionX, dm.dmPositionY, dm.dmPelsWidth, dm.dmPelsHeight);
+                }
+                else
+                {
+                    bounds = mi.rcMonitor.ToRectangle();
+                }
+
+                var title = $"Display {displayIndex} ({bounds.Width}x{bounds.Height}){(isPrimary ? " [Primary]" : "")}";
 
                 list.Add(new CaptureSourceInfo
                 {
                     SourceType = CaptureSourceType.Display,
                     Title = title,
                     Handle = hMonitor,
-                    Bounds = rect
+                    DeviceName = mi.szDevice,
+                    Bounds = bounds
                 });
                 displayIndex++;
             }

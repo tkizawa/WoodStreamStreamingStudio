@@ -146,8 +146,15 @@ public class ScreenCaptureService : IDisposable
                 CaptureHeight = height;
 
                 // Win32 GDI による画面取り込み
-                // デスクトップDCを基準に互換DCとビットマップを作成
-                nint hDesktopDC = NativeMethods.GetDC(nint.Zero);
+                // マルチモニタ環境に対応するため、仮想スクリーン全体のDC (CreateDC("DISPLAY", null...)) を生成
+                bool isCreatedDC = true;
+                nint hDesktopDC = NativeMethods.CreateDC("DISPLAY", null, null, nint.Zero);
+                if (hDesktopDC == nint.Zero)
+                {
+                    isCreatedDC = false;
+                    hDesktopDC = NativeMethods.GetDC(nint.Zero);
+                }
+
                 nint hDestDC = NativeMethods.CreateCompatibleDC(hDesktopDC);
                 nint hBitmap = NativeMethods.CreateCompatibleBitmap(hDesktopDC, width, height);
                 nint hOldBitmap = NativeMethods.SelectObject(hDestDC, hBitmap);
@@ -168,9 +175,7 @@ public class ScreenCaptureService : IDisposable
                     }
                 }
 
-                // 方法2 (またはディスプレイキャプチャ): デスクトップ画面座標から直接 BitBlt でキャプチャ
-                // UWPアプリ（Windows「設定」等）やPrintWindow非対応のGPUレンダリングウィンドウも
-                // 画面上に表示されているピクセルを100%確実にキャプチャ
+                // 方法2 (またはディスプレイキャプチャ): 仮想デスクトップ座標から直接 BitBlt でキャプチャ
                 if (!capturedWithPrintWindow)
                 {
                     NativeMethods.BitBlt(
@@ -178,6 +183,11 @@ public class ScreenCaptureService : IDisposable
                         hDesktopDC, targetRect.Left, targetRect.Top,
                         NativeMethods.SRCCOPY | NativeMethods.CAPTUREBLT);
                 }
+
+                NativeMethods.GdiFlush();
+
+                // MSDN仕様: GetDIBits を呼び出す前に、対象ビットマップをDCから解除 (Deselect) する必要がある
+                NativeMethods.SelectObject(hDestDC, hOldBitmap);
 
                 // DIBits 経由で OpenCvSharp の Mat (CV_8UC4) を直接生成
                 var bmi = new NativeMethods.BITMAPINFOHEADER
@@ -193,22 +203,53 @@ public class ScreenCaptureService : IDisposable
                 using var frameMat = new Mat(height, width, MatType.CV_8UC4);
                 NativeMethods.GetDIBits(hDestDC, hBitmap, 0, (uint)height, frameMat.Data, ref bmi, 0);
 
-                // もし PrintWindow で「成功」と返ってきたが中身が真っ黒だった場合は、
-                // デスクトップBitBltにフォールバックして再取得
+                // もし PrintWindow で「成功」と返ってきたが中身が真っ黒だった場合は、デスクトップBitBltにフォールバック
                 if (capturedWithPrintWindow && IsBlackFrame(frameMat))
                 {
+                    NativeMethods.SelectObject(hDestDC, hBitmap);
                     NativeMethods.BitBlt(
                         hDestDC, 0, 0, width, height,
                         hDesktopDC, targetRect.Left, targetRect.Top,
                         NativeMethods.SRCCOPY | NativeMethods.CAPTUREBLT);
+                    NativeMethods.GdiFlush();
+                    NativeMethods.SelectObject(hDestDC, hOldBitmap);
                     NativeMethods.GetDIBits(hDestDC, hBitmap, 0, (uint)height, frameMat.Data, ref bmi, 0);
                 }
 
+                // ディスプレイキャプチャ時、仮想デスクトップDCで黒フレームになった場合はモニタ専用DCからローカル(0,0)座標でフォールバック
+                if (source.SourceType == CaptureSourceType.Display && !string.IsNullOrEmpty(source.DeviceName) && IsBlackFrame(frameMat))
+                {
+                    nint hMonDC = NativeMethods.CreateDC(null, source.DeviceName, null, nint.Zero);
+                    if (hMonDC == nint.Zero)
+                    {
+                        hMonDC = NativeMethods.CreateDC("DISPLAY", source.DeviceName, null, nint.Zero);
+                    }
+
+                    if (hMonDC != nint.Zero)
+                    {
+                        NativeMethods.SelectObject(hDestDC, hBitmap);
+                        NativeMethods.BitBlt(
+                            hDestDC, 0, 0, width, height,
+                            hMonDC, 0, 0,
+                            NativeMethods.SRCCOPY | NativeMethods.CAPTUREBLT);
+                        NativeMethods.GdiFlush();
+                        NativeMethods.SelectObject(hDestDC, hOldBitmap);
+                        NativeMethods.GetDIBits(hDestDC, hBitmap, 0, (uint)height, frameMat.Data, ref bmi, 0);
+                        NativeMethods.DeleteDC(hMonDC);
+                    }
+                }
+
                 // GDIリソースの安全な解放
-                NativeMethods.SelectObject(hDestDC, hOldBitmap);
                 NativeMethods.DeleteObject(hBitmap);
                 NativeMethods.DeleteDC(hDestDC);
-                NativeMethods.ReleaseDC(nint.Zero, hDesktopDC);
+                if (isCreatedDC)
+                {
+                    NativeMethods.DeleteDC(hDesktopDC);
+                }
+                else
+                {
+                    NativeMethods.ReleaseDC(nint.Zero, hDesktopDC);
+                }
 
                 // BGR24 (CV_8UC3) に統一変換してメモリ効率およびプレビュー・合成色空間の整合性を確保
                 using var bgrMat = new Mat();
